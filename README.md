@@ -1,8 +1,16 @@
 # omcp
 
+[![CI](https://github.com/muhnazih029/omcp/actions/workflows/ci.yml/badge.svg)](https://github.com/muhnazih029/omcp/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/muhnazih029/omcp)](https://github.com/muhnazih029/omcp/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **Profile-based MCP switching for [OpenCode](https://opencode.ai).**
 
 Turn MCP servers on and off per workflow instead of paying the context cost of every server, on every request, forever.
+
+```sh
+curl -fsSL https://github.com/muhnazih029/omcp/releases/latest/download/install.sh | sh
+```
 
 ```
 $ omcp
@@ -48,10 +56,20 @@ Every MCP server configured in OpenCode connects at startup, and its tool schema
 
 ## Requirements
 
-- [Bun](https://bun.sh) 1.1 or newer
-- OpenCode v2.2 or newer
+- Linux or macOS (Windows is not supported yet)
+- [OpenCode](https://opencode.ai) v2.2 or newer
+
+Building from source additionally needs [Bun](https://bun.sh) 1.1 or newer.
 
 ## Install
+
+```sh
+curl -fsSL https://github.com/muhnazih029/omcp/releases/latest/download/install.sh | sh
+```
+
+The script picks the binary for your OS and architecture, verifies its SHA-256 checksum, and installs it to `~/.local/bin`. Override the destination with `OMCP_INSTALL_DIR`, or pin a version with `OMCP_VERSION=0.1.0`.
+
+### From source
 
 ```sh
 git clone https://github.com/muhnazih029/omcp.git

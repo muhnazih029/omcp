@@ -14,6 +14,7 @@ function withCatalog(catalog: Record<string, CatalogEntry>): Store {
 }
 
 function sandbox(): string {
+  mkdirSync(SANDBOX_ROOT, { recursive: true });
   return mkdtempSync(join(SANDBOX_ROOT, "omcp-external-"));
 }
 

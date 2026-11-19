@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const SANDBOX_ROOT = "/tmp/opencode";
@@ -9,6 +9,7 @@ const SANDBOX_ROOT = "/tmp/opencode";
  * developer's real ~/.config/opencode untouched.
  */
 export function ensureSandbox(): string {
+  mkdirSync(SANDBOX_ROOT, { recursive: true });
   const dir = mkdtempSync(join(SANDBOX_ROOT, "omcp-test-"));
   process.env.OPENCODE_CONFIG_DIR = dir;
   return dir;

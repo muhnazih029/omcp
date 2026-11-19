@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build binaries
+        run: |
+          set -eu
+          mkdir -p dist/release
+          for target in bun-linux-x64 bun-linux-arm64 bun-darwin-x64 bun-darwin-arm64; do
+            name="omcp-${target#bun-}"
+            echo "building $name"
+            bun build bin/omcp.ts --compile --target="$target" --outfile "dist/release/$name"
+          done
+          cd dist/release
+          sha256sum omcp-* > SHA256SUMS
+
+      - name: Smoke test native binary
+        run: ./dist/release/omcp-linux-x64 version
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/release/*
+            install.sh
+          generate_release_notes: true
+          fail_on_unmatched_files: true
