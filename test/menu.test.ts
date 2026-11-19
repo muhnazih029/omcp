@@ -23,14 +23,14 @@ describe("menuAction", () => {
 });
 
 describe("menuFooter", () => {
-  test("lists navigation, every action key and the contextual rule", () => {
+  test("stays short while listing navigation and every action key", () => {
     const footer = menuFooter();
 
-    expect(footer).toContain("↑/↓ navigate");
-    expect(footer).toContain("Enter use selected profile");
+    expect(footer).toContain("↑/↓ move");
+    expect(footer).toContain("Enter apply");
     for (const key of ["e", "d", "a", "s", "c", "x", "q"]) {
       expect(footer).toContain(key);
     }
-    expect(footer).toContain("act on the highlighted profile");
+    expect(footer.split("\n")).toHaveLength(2);
   });
 });

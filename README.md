@@ -19,9 +19,8 @@ $ omcp
 │  ○ 🍃 minimal (no servers)
 │  ○ 🧠 think (no servers)
 │
-│  ↑/↓ navigate · Enter use selected profile
-│  e edit · d delete · a add server · s sync · c create · x custom · q quit
-│  edit / delete / add / sync act on the highlighted profile
+│  ↑/↓ move · Enter apply
+│  e edit · d delete · a add · s sync · c create · x custom · q quit
 └
 ```
 

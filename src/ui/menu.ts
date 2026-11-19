@@ -90,10 +90,15 @@ function actionLabel(choice: MenuChoice): string {
 /** Informational footer shown under the profile list, never a selectable row. */
 export function menuFooter(): string {
   return [
-    "↑/↓ navigate · Enter use selected profile",
-    "e edit · d delete · a add server · s sync · c create · x custom · q quit",
-    "edit / delete / add / sync act on the highlighted profile",
+    "↑/↓ move · Enter apply",
+    "e edit · d delete · a add · s sync · c create · x custom · q quit",
   ].join("\n");
+}
+
+/** Wipe the previous menu/sub-flow so Back does not stack old screens. */
+function clearScreen(): void {
+  if (!process.stdout.isTTY) return;
+  process.stdout.write("\x1b[2J\x1b[H");
 }
 
 function renderMenu(this: MenuPrompt): string {
@@ -388,7 +393,11 @@ export async function deleteProfile(store: Store, preselected?: string): Promise
  * or 0 when the user quits the menu without launching.
  */
 export async function runMenu(store: Store, args: string[]): Promise<number> {
+  let first = true;
   for (;;) {
+    if (!first) clearScreen();
+    first = false;
+
     p.note(header(store), "omcp");
     const choice = await chooseMenu(store);
 
