@@ -88,7 +88,6 @@ git clone https://github.com/muhnazih029/omcp.git
 cd omcp
 bun install
 bun link          # exposes the `omcp` command
-```
 omcp              # first run asks how you want to launch
 ```
 
@@ -262,7 +261,7 @@ The server catalog and your profiles live next to it in `~/.config/opencode/omcp
 
 ## Contributing
 
-Issues and pull requests are welcome. Please run `bun test` and `bun run typecheck` before opening a PR.
+Issues and pull requests are welcome! Please check out [CONTRIBUTING.md](./CONTRIBUTING.md) for local development instructions, test guidelines, and PR workflow.
 
 ## License
 

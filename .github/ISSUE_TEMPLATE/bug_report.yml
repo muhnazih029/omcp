@@ -1,0 +1,42 @@
+name: Bug report
+description: Create a report to help us improve omcp
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting an issue! Before submitting, please check if the problem has already been reported.
+  - type: input
+    id: version
+    attributes:
+      label: omcp version
+      description: Run `omcp version` or `npx omcp-cli version`
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating System & Architecture
+      placeholder: "e.g. Ubuntu 24.04 (x64) or macOS Sequoia (arm64)"
+    validations:
+      required: true
+  - type: textarea
+    id: doctor-output
+    attributes:
+      label: omcp doctor output
+      description: Please paste the output of `omcp doctor`
+      render: text
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the bug and the steps to reproduce it.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: false
