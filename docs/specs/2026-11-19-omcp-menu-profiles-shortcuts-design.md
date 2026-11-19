@@ -164,3 +164,48 @@ Ditambahkan ke README dan ke hint legenda menu: **Add a server** mendaftarkan at
 ## di luar cakupan
 
 - Profil `custom` tersimpan, nama `brainstorming`, shortcut di wizard, dan perubahan format `omcp.json`.
+
+---
+
+## Revisi 2026-11-19 (menggantikan bagian 2)
+
+Setelah mencoba versi pertama, desain shortcut di atas **ditolak**: `p.selectKey()` menghilangkan navigasi arrow dan mengubah menu menjadi daftar aksi, padahal yang diminta adalah daftar profil yang tetap bisa dinavigasi dengan ↑/↓. Bagian 2, 3 (sebagian), dan rencana pengujian yang menyebut angka `1`–`5` digantikan oleh desain berikut.
+
+### Menu utama
+
+- Menu hanya berisi **profil** (5 profil awal; profil buatan pengguna ikut tampil). Arrow ↑/↓ memindahkan highlight, Enter memakai profil tersebut dan meluncurkan OpenCode.
+- Footer di bawah daftar berisi teks keterangan, bukan opsi yang bisa disorot:
+
+```text
+↑/↓ navigate · Enter use selected profile
+e edit · d delete · a add server · s sync · c create · x custom · q quit
+edit / delete / add / sync act on the highlighted profile
+```
+
+- Header hanya menampilkan profil aktif, server aktif, dan path config. Legenda tidak lagi di header.
+
+### Aksi kontekstual
+
+| Tombol | Efek |
+| --- | --- |
+| `e` | Edit profil yang sedang disorot, tanpa prompt pemilih profil |
+| `d` | Hapus profil yang disorot, dengan konfirmasi |
+| `a` | Daftarkan server lalu otomatis memasukkannya ke profil yang disorot |
+| `s` | Sync dari `opencode.json` lalu otomatis memasukkan server baru ke profil yang disorot |
+| `c` | Buat profil baru (global) |
+| `x` | Custom session (global) |
+| `q` | Quit |
+
+Untuk `full`, `a`/`s` tidak menambahkan entri eksplisit karena wildcard sudah mencakup semua server; `e` mempertahankan `["*"]` bila semua server tetap dipilih.
+
+### Implementasi
+
+- `@clack/prompts` tidak mengekspos tombol bebas untuk `select`, jadi menu utama memakai `SelectPrompt` dari `@clack/core` v1.6.0 dengan `render()` sendiri dan event `"key"`. `@clack/core` ditambahkan sebagai dependency eksplisit.
+- Helper murni `menuAction(key, profile)` memetakan tombol ke aksi + profil; dipakai oleh event handler dan test.
+- `addServerFlow(store, assignTo?)` menerima profil tujuan opsional agar wizard tidak lagi bertanya "masuk profil mana" saat dipanggil dari menu.
+- `deleteProfile(store, preselected?)` menerima nama profil dari highlight.
+
+### Pengujian revisi
+
+- Test `menuAction()` untuk semua tombol dan fallback.
+- Smoke test TTY: arrow berpindah highlight, Enter memakai profil, `e` pada profil tertentu langsung membuka editor profil itu, footer tampil di bawah daftar, tidak ada spasi ganda.

@@ -12,22 +12,16 @@ $ omcp
 │  Enabled servers: no servers
 │  Config         : ~/.config/opencode/opencode.json
 │
-│  Keys  1-5 profiles · x custom · e edit · c create · a add · s sync · d delete · q quit
-│        add: register/install a new MCP server   sync: import servers from opencode.json
+◆  Choose a profile
+│  ● 💻 build (no servers)
+│  ○ 🎨 design (no servers)
+│  ○ ⚡ full (all configured servers)
+│  ○ 🍃 minimal (no servers)
+│  ○ 🧠 think (no servers)
 │
-◆  Press a key to choose
-│   1  💻 build (no servers)
-│   2  🎨 design (no servers)
-│   3  ⚡ full (all configured servers)
-│   4  🍃 minimal (no servers)
-│   5  🧠 think (no servers)
-│   x  🎯 Custom session (servers for this run only)
-│   e  ✏️ Edit a profile (change a profile's servers)
-│   c  ➕ Create a profile (new reusable preset)
-│   a  📦 Add a server (register a new MCP server)
-│   s  🔄 Sync from opencode.json (import servers added elsewhere)
-│   d  🗑 Delete a profile (remove a preset, keep servers)
-│   q  ✖ Quit (launch nothing)
+│  ↑/↓ navigate · Enter use selected profile
+│  e edit · d delete · a add server · s sync · c create · x custom · q quit
+│  edit / delete / add / sync act on the highlighted profile
 └
 ```
 
@@ -45,7 +39,7 @@ Every MCP server configured in OpenCode connects at startup, and its tool schema
 
 - **Starter profiles** — `build`, `design`, `full`, `minimal`, `think` always exist, even with zero servers.
 - **Dynamic `full`** — always means every server currently in your catalog; new servers join automatically.
-- **Keyboard shortcuts** — press a single key to pick a profile or action, no arrow-key trekking.
+- **Arrow navigation + shortcuts** — ↑/↓ through profiles, Enter to apply, single keys for actions on the highlighted profile.
 - **Persistent edits** — change what a profile contains once and it stays that way.
 - **Custom sessions** — pick an ad-hoc server set for one run, restored automatically when OpenCode exits.
 - **Server installer** — register `bunx` / `npx` packages, existing commands, remote URLs, or clone a Git repo and run its install/build steps.
@@ -143,27 +137,28 @@ Created on first run regardless of how many servers you have:
 
 `Custom session` is not a saved profile: it applies a one-off server set and restores the previous config when OpenCode exits.
 
-## Menu shortcuts
+## Menu navigation and shortcuts
 
-The menu reacts to single keypresses. The same keys are listed in the legend at the top of the menu.
+The main menu lists **profiles only**. Use ↑/↓ to move the highlight and Enter to apply the selected profile. The key hints are printed as a footer under the list — they are text, not extra menu rows.
 
 | Key | Action |
 | --- | --- |
-| `1`–`5` | Profiles in stable alphabetical order: build, design, full, minimal, think |
-| `x` | Custom session (this run only) |
-| `e` | Edit a profile — change which servers it enables |
+| `e` | Edit the **highlighted** profile — change which servers it enables |
+| `d` | Delete the **highlighted** profile (servers stay configured, with confirmation) |
+| `a` | Register a new server and add it to the **highlighted** profile |
+| `s` | Sync from `opencode.json` and add imported servers to the **highlighted** profile |
 | `c` | Create a new profile |
-| `a` | Add a server — register or install a new MCP definition |
-| `s` | Sync — import servers added to `opencode.json` elsewhere |
-| `d` | Delete a profile (servers stay configured) |
+| `x` | Custom session (this run only) |
 | `q` | Quit without launching |
+
+With `full`, `a` and `s` do not add explicit entries because the wildcard already covers every server.
 
 Every sub-menu has a **← Back** option that returns to the main menu. Cancelling a text or multiselect prompt with `Ctrl+C` also returns to the menu instead of exiting `omcp`.
 
 ### "Add a server" vs "Sync"
 
-- **Add a server** (`a`) registers a brand-new MCP definition: a `bunx`/`npx` package, an existing command, a remote HTTP endpoint, or a Git repository that is cloned and built. The server lands in the catalog **disabled**; put it in a profile with `e` to actually enable it.
-- **Sync** (`s`) imports servers you already added elsewhere, for example with `opencode mcp add` or by hand-editing `opencode.json`. It does not install anything and never overwrites definitions you changed by hand.
+- **Add a server** (`a`) registers a brand-new MCP definition: a `bunx`/`npx` package, an existing command, a remote HTTP endpoint, or a Git repository that is cloned and built. The server lands in the catalog **disabled**, then is assigned to the profile you were highlighting.
+- **Sync** (`s`) imports servers you already added elsewhere, for example with `opencode mcp add` or by hand-editing `opencode.json`, and assigns the new ones to the highlighted profile. It does not install anything and never overwrites definitions you changed by hand.
 
 ## How it works
 

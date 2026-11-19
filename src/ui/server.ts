@@ -44,7 +44,7 @@ function parseEnv(input: string): Record<string, string> | undefined {
   return Object.keys(env).length > 0 ? env : undefined;
 }
 
-export async function addServerFlow(store: Store): Promise<string | null> {
+export async function addServerFlow(store: Store, assignTo?: string): Promise<string | null> {
   const kind = await ask(
     await p.select<Kind | typeof BACK_VALUE>({
       message: "How is this server started?",
@@ -227,30 +227,38 @@ export async function addServerFlow(store: Store): Promise<string | null> {
     tags: tags.length > 0 ? tags : undefined,
   });
 
-  const candidates = Object.entries(store.profiles).filter(
-    ([, profile]) => !isWildcardProfile(profile) && !profile.servers.includes(name),
-  );
+  const target = assignTo && assignTo in store.profiles ? store.profiles[assignTo] : undefined;
 
-  if (candidates.length > 0) {
-    const picked = await ask(
-      await p.multiselect<string>({
-        message: "Add this server to which profiles?",
-        options: candidates.map(([profileName, profile]) => {
-          const servers = profileServerNames(store, profile);
-          return {
-            value: profileName,
-            label: `${profile.emoji ? `${profile.emoji} ` : ""}${profileName}`,
-            hint: shortenHint(servers.length === 0 ? "empty profile" : servers.join(", ")),
-          };
-        }),
-        required: false,
-        initialValues: [],
-      }),
+  if (target) {
+    if (!isWildcardProfile(target) && !target.servers.includes(name)) {
+      target.servers.push(name);
+    }
+  } else {
+    const candidates = Object.entries(store.profiles).filter(
+      ([, profile]) => !isWildcardProfile(profile) && !profile.servers.includes(name),
     );
 
-    for (const profileName of picked) {
-      const profile = store.profiles[profileName];
-      if (profile) profile.servers.push(name);
+    if (candidates.length > 0) {
+      const picked = await ask(
+        await p.multiselect<string>({
+          message: "Add this server to which profiles?",
+          options: candidates.map(([profileName, profile]) => {
+            const servers = profileServerNames(store, profile);
+            return {
+              value: profileName,
+              label: `${profile.emoji ? `${profile.emoji} ` : ""}${profileName}`,
+              hint: shortenHint(servers.length === 0 ? "empty profile" : servers.join(", ")),
+            };
+          }),
+          required: false,
+          initialValues: [],
+        }),
+      );
+
+      for (const profileName of picked) {
+        const profile = store.profiles[profileName];
+        if (profile) profile.servers.push(name);
+      }
     }
   }
 

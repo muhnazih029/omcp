@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { guessTags, slugifyProfileName, splitCommand } from "../src/util.ts";
 import { findBinaryOnPath, isWrapper } from "../src/launcher.ts";
 import { removeWrapper, setupWrapper, wrapperPath } from "../src/setup.ts";
@@ -52,9 +54,25 @@ describe("guessTags", () => {
 
 describe("wrapper detection", () => {
   test("findBinaryOnPath skips the omcp wrapper", () => {
-    const real = findBinaryOnPath();
-    if (!real) return;
-    expect(isWrapper(real)).toBe(false);
+    const root = mkdtempSync(join(tmpdir(), "omcp-path-"));
+    const wrapperDir = join(root, "wrapper");
+    const realDir = join(root, "real");
+    mkdirSync(wrapperDir);
+    mkdirSync(realDir);
+    writeFileSync(join(wrapperDir, "opencode"), "#!/bin/sh\n# OMCP_WRAPPER\nexit 0\n", {
+      mode: 0o755,
+    });
+    writeFileSync(join(realDir, "opencode"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+
+    const originalPath = process.env.PATH;
+    process.env.PATH = `${wrapperDir}:${realDir}`;
+    try {
+      const found = findBinaryOnPath();
+      expect(found).toBe(realpathSync(join(realDir, "opencode")));
+      expect(isWrapper(found!)).toBe(false);
+    } finally {
+      process.env.PATH = originalPath;
+    }
   });
 
   test("isWrapper is false for a normal file", () => {

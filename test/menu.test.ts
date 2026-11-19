@@ -1,67 +1,36 @@
 import { describe, expect, test } from "bun:test";
-import { emptyStore } from "../src/store.ts";
-import type { Store } from "../src/types.ts";
-import { menuBindings, parseChoice } from "../src/ui/menu.ts";
-import { ensureSandbox } from "./helpers.ts";
+import { menuAction, menuFooter } from "../src/ui/menu.ts";
 
-function sampleStore(): Store {
-  ensureSandbox();
-  const store = emptyStore();
-  for (const name of ["build", "design", "full", "minimal", "think"]) {
-    store.profiles[name] = { servers: name === "full" ? ["*"] : [] };
-  }
-  return store;
-}
-
-describe("menuBindings", () => {
-  test("maps 1-5 to profiles in a stable alphabetical order", () => {
-    const bindings = menuBindings(sampleStore());
-    const profiles = bindings.filter((binding) => /^\d$/.test(binding.key));
-
-    expect(profiles.map((binding) => binding.key)).toEqual(["1", "2", "3", "4", "5"]);
-    expect(profiles.map((binding) => binding.target)).toEqual([
-      "build",
-      "design",
-      "full",
-      "minimal",
-      "think",
-    ]);
+describe("menuAction", () => {
+  test("profile actions carry the highlighted profile", () => {
+    expect(menuAction("e", "design")).toEqual({ kind: "edit", name: "design" });
+    expect(menuAction("d", "design")).toEqual({ kind: "delete", name: "design" });
+    expect(menuAction("a", "design")).toEqual({ kind: "add", name: "design" });
+    expect(menuAction("s", "design")).toEqual({ kind: "sync", name: "design" });
   });
 
-  test("binds each action key exactly once", () => {
-    const bindings = menuBindings(sampleStore());
-    const actions = Object.fromEntries(
-      bindings
-        .filter((binding) => !/^\d$/.test(binding.key))
-        .map((binding) => [binding.key, binding.target]),
-    );
-
-    expect(actions).toEqual({
-      x: "action:custom",
-      e: "action:edit",
-      c: "action:create",
-      a: "action:add",
-      s: "action:sync",
-      d: "action:delete",
-      q: "action:quit",
-    });
+  test("global actions do not need a profile", () => {
+    expect(menuAction("c", "build")).toEqual({ kind: "create" });
+    expect(menuAction("x", "build")).toEqual({ kind: "custom" });
+    expect(menuAction("q", "build")).toEqual({ kind: "quit" });
   });
 
-  test("parseChoice resolves keys back to profiles and actions", () => {
-    const bindings = menuBindings(sampleStore());
-
-    expect(parseChoice("1", bindings)).toEqual({ kind: "profile", name: "build" });
-    expect(parseChoice("3", bindings)).toEqual({ kind: "profile", name: "full" });
-    expect(parseChoice("e", bindings)).toEqual({ kind: "edit" });
-    expect(parseChoice("q", bindings)).toEqual({ kind: "quit" });
-    expect(parseChoice("Z", bindings)).toEqual({ kind: "quit" });
+  test("is case insensitive and ignores unrelated keys", () => {
+    expect(menuAction("E", "think")).toEqual({ kind: "edit", name: "think" });
+    expect(menuAction("ArrowDown", "think")).toBeNull();
+    expect(menuAction(undefined, "think")).toBeNull();
   });
+});
 
-  test("the full profile uses a dynamic hint, not a server list", () => {
-    const store = sampleStore();
-    store.catalog.github = { server: { type: "local", command: ["github-mcp"] } };
+describe("menuFooter", () => {
+  test("lists navigation, every action key and the contextual rule", () => {
+    const footer = menuFooter();
 
-    const full = menuBindings(store).find((binding) => binding.target === "full");
-    expect(full?.hint).toContain("all configured servers");
+    expect(footer).toContain("↑/↓ navigate");
+    expect(footer).toContain("Enter use selected profile");
+    for (const key of ["e", "d", "a", "s", "c", "x", "q"]) {
+      expect(footer).toContain(key);
+    }
+    expect(footer).toContain("act on the highlighted profile");
   });
 });
