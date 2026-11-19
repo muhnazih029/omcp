@@ -1,0 +1,49 @@
+{
+  "name": "omcp",
+  "version": "0.1.0",
+  "description": "Profile-based MCP manager and launcher for OpenCode. Turn MCP servers on and off per workflow instead of paying the context cost of all of them.",
+  "type": "module",
+  "bin": {
+    "omcp": "./bin/omcp.ts"
+  },
+  "scripts": {
+    "dev": "bun run bin/omcp.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "build": "bun build bin/omcp.ts --compile --outfile dist/omcp"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "opencode",
+    "mcp",
+    "model-context-protocol",
+    "cli",
+    "profiles",
+    "context-window"
+  ],
+  "license": "MIT",
+  "engines": {
+    "bun": ">=1.1.0"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.9.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.4",
+    "typescript": "5.9"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/muhnazih029/omcp.git"
+  },
+  "homepage": "https://github.com/muhnazih029/omcp#readme",
+  "bugs": {
+    "url": "https://github.com/muhnazih029/omcp/issues"
+  },
+  "author": "Muh. Nazih"
+}
