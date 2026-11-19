@@ -242,3 +242,47 @@ export function removeProfile(store: Store, name: string): boolean {
   if (store.lastProfile === name) delete store.lastProfile;
   return true;
 }
+
+const SERVER_NAME = /^[a-zA-Z0-9_-]+$/;
+
+/** Names OpenCode and omcp will accept as an MCP server id. */
+export function isServerName(name: string): boolean {
+  return SERVER_NAME.test(name);
+}
+
+/**
+ * Rename a catalog entry and every explicit profile that names it.
+ * A wildcard profile already covers the new name. Returns false when the
+ * source is missing, the new name is invalid, or it collides with another entry.
+ */
+export function renameCatalogEntry(store: Store, from: string, to: string): boolean {
+  if (from === to) return from in store.catalog;
+  if (!(from in store.catalog) || to in store.catalog) return false;
+  if (!isServerName(to)) return false;
+
+  store.catalog[to] = store.catalog[from]!;
+  delete store.catalog[from];
+
+  for (const profile of Object.values(store.profiles)) {
+    if (isWildcardProfile(profile)) continue;
+    profile.servers = profile.servers.map((name) => (name === from ? to : name));
+  }
+
+  return true;
+}
+
+/**
+ * Drop a server from the catalog and from every explicit profile.
+ * Does not rewrite opencode.json; the caller applies the catalog afterward.
+ */
+export function removeCatalogEntry(store: Store, name: string): boolean {
+  if (!(name in store.catalog)) return false;
+  delete store.catalog[name];
+
+  for (const profile of Object.values(store.profiles)) {
+    if (isWildcardProfile(profile)) continue;
+    profile.servers = profile.servers.filter((server) => server !== name);
+  }
+
+  return true;
+}

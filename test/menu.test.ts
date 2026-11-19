@@ -7,6 +7,7 @@ describe("menuAction", () => {
     expect(menuAction("d", "design")).toEqual({ kind: "delete", name: "design" });
     expect(menuAction("a", "design")).toEqual({ kind: "add", name: "design" });
     expect(menuAction("s", "design")).toEqual({ kind: "sync", name: "design" });
+    expect(menuAction("m", "design")).toEqual({ kind: "manage" });
   });
 
   test("global actions do not need a profile", () => {
@@ -28,7 +29,7 @@ describe("menuFooter", () => {
 
     expect(footer).toContain("↑/↓ move");
     expect(footer).toContain("Enter apply");
-    for (const key of ["e", "d", "a", "s", "c", "x", "q"]) {
+    for (const key of ["e", "d", "a", "s", "m", "c", "x", "q"]) {
       expect(footer).toContain(key);
     }
     expect(footer.split("\n")).toHaveLength(2);

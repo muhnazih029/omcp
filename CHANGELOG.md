@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Server manager on `m` (or `omcp servers`): lists every catalog server, `e` to edit and `d` to delete the highlighted one.
+- `omcp server rm <name> [--force]` to delete a server non-interactively.
+- Editing a server can change its name, start command, description and tags; renaming updates every profile that named it.
+- Deleting a server removes it from the catalog, every profile and `opencode.json` in one write.
+
 ## 0.1.0 — 2026-11-19
 
 First public release.

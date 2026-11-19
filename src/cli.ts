@@ -21,7 +21,8 @@ import type { Store } from "./types.ts";
 import { CancelledError, errorMessage } from "./ui/common.ts";
 import { createProfile, customSession, editProfile, runMenu } from "./ui/menu.ts";
 import { runOnboarding } from "./ui/onboarding.ts";
-import { addServerFlow } from "./ui/server.ts";
+import { addServerFlow, deleteServerFlow } from "./ui/server.ts";
+import { manageServers } from "./ui/servers.ts";
 import { shortPath } from "./util.ts";
 
 const VERSION = "0.1.0";
@@ -65,6 +66,8 @@ Profiles
 
 Servers
   omcp add                        Register or install an MCP server
+  omcp servers                    List, edit or delete an MCP server
+  omcp server rm <name>           Delete an MCP server (--force to skip confirmation)
   omcp sync                       Import servers from opencode.json
   omcp doctor                     Diagnose config, PATH and profile problems
 
@@ -307,6 +310,27 @@ export async function main(argv: string[]): Promise<number> {
     const added = await addServerFlow(store);
     if (added) success(`Server "${added}" registered as disabled until a profile enables it.`);
     return 0;
+  }
+
+  if (first === "servers") {
+    requireTty();
+    await manageServers(store);
+    return 0;
+  }
+
+  if (first === "server") {
+    const sub = tail[0];
+    if (sub !== "rm" && sub !== "remove" && sub !== "delete") {
+      throw new Error("Usage: omcp server rm <name> [--force]");
+    }
+    const name = tail[1];
+    if (!name) throw new Error("Usage: omcp server rm <name>");
+    const force = tail.includes("--force");
+    if (!process.stdin.isTTY && !force) {
+      throw new Error("Deleting a server needs a terminal. Use --force to skip confirmation.");
+    }
+    const deleted = await deleteServerFlow(store, name, { force });
+    return deleted ? 0 : 1;
   }
 
   if (first === "sync") {

@@ -22,11 +22,13 @@ import {
   backOption,
   BACK_VALUE,
   CancelledError,
+  runSubFlow,
   serverOptions,
   shortenHint,
   summarizeServers,
 } from "./common.ts";
 import { addServerFlow } from "./server.ts";
+import { manageServers } from "./servers.ts";
 
 type MenuOption = { value: string; label: string; hint?: string };
 type MenuPrompt = Omit<SelectPrompt<MenuOption>, "prompt">;
@@ -38,6 +40,7 @@ export type MenuChoice =
   | { kind: "delete"; name: string }
   | { kind: "add"; name: string }
   | { kind: "sync"; name: string }
+  | { kind: "manage" }
   | { kind: "create" }
   | { kind: "quit" };
 
@@ -55,6 +58,8 @@ export function menuAction(key: string | undefined, profile: string): MenuChoice
       return { kind: "add", name: profile };
     case "s":
       return { kind: "sync", name: profile };
+    case "m":
+      return { kind: "manage" };
     case "c":
       return { kind: "create" };
     case "x":
@@ -77,6 +82,8 @@ function actionLabel(choice: MenuChoice): string {
       return `📦 Add a server to ${choice.name}`;
     case "sync":
       return `🔄 Sync into ${choice.name}`;
+    case "manage":
+      return "🛠 Manage MCPs";
     case "create":
       return "➕ Create a profile";
     case "custom":
@@ -92,7 +99,7 @@ function actionLabel(choice: MenuChoice): string {
 export function menuFooter(): string {
   return [
     "↑/↓ move · Enter apply",
-    "e edit · d delete · a add · s sync · c create · x custom · q quit",
+    "e edit · d delete · a add · s sync · m mcps · c create · x custom · q quit",
   ].join("\n");
 }
 
@@ -234,19 +241,6 @@ function assignServers(store: Store, profileName: string, names: string[]): void
   const profile = store.profiles[profileName];
   if (!profile || isWildcardProfile(profile)) return;
   profile.servers = [...new Set([...profile.servers, ...names])];
-}
-
-/** Return to the menu on cancellation instead of exiting omcp. */
-async function runSubFlow(flow: () => Promise<void>): Promise<void> {
-  try {
-    await flow();
-  } catch (error) {
-    if (error instanceof CancelledError) {
-      p.log.info("Back to menu.");
-      return;
-    }
-    throw error;
-  }
 }
 
 export async function customSession(store: Store, args: string[]): Promise<number | null> {
@@ -456,6 +450,8 @@ export async function runMenu(store: Store, args: string[]): Promise<number> {
           : "Catalog is already up to date.",
       );
     }
+
+    if (choice.kind === "manage") await runSubFlow(() => manageServers(store));
 
     if (choice.kind === "custom") {
       let code: number | null = null;

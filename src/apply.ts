@@ -17,8 +17,14 @@ export type ApplyResult = {
  * profile switch is a flag flip instead of a config rewrite. OpenCode watches
  * the file and reconnects servers on save, so this also works mid-session.
  */
-export function applyServerSet(store: Store, names: string[], options: { dryRun?: boolean } = {}): ApplyResult {
-  syncCatalogFromConfig(store);
+export function applyServerSet(
+  store: Store,
+  names: string[],
+  options: { dryRun?: boolean; sync?: boolean } = {},
+): ApplyResult {
+  // Deletion and rename rewrite the config from the catalog. Re-syncing here
+  // would immediately re-import the very entry we just removed.
+  if (options.sync !== false) syncCatalogFromConfig(store);
 
   const state = readConfig();
   const selected = new Set(names);

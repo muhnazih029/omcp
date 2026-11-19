@@ -173,3 +173,26 @@ describe("syncCatalogFromConfig", () => {
     expect(freshEntry?.server.type).toBe("remote");
   });
 });
+
+describe("applyServerSet without sync", () => {
+  test("does not re-import a server just removed from the catalog", async () => {
+    const dir = ensureSandbox();
+    const configPath = await seed(dir);
+
+    const store = loadStore();
+    const { removeCatalogEntry } = await import("../src/store.ts");
+    removeCatalogEntry(store, "pencil");
+
+    applyServerSet(store, [], { sync: false });
+
+    expect(store.catalog.pencil).toBeUndefined();
+    const written = await readJson(configPath);
+    expect(Object.keys(written.mcp.servers)).not.toContain("pencil");
+    expect(Object.keys(written.mcp.servers).sort()).toEqual([
+      "claude-mem",
+      "context7",
+      "dank-todo",
+      "github",
+    ]);
+  });
+});

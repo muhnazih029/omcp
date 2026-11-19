@@ -136,6 +136,8 @@ opencode              # opens the menu, then starts OpenCode
 | `omcp new` | Create a profile |
 | `omcp rm <name>` | Delete a profile (servers stay configured) |
 | `omcp add` | Register or install an MCP server |
+| `omcp servers` | List MCPs and edit or delete the highlighted one |
+| `omcp server rm <name> [--force]` | Delete an MCP server from the catalog and config |
 | `omcp sync` | Import servers added to `opencode.json` elsewhere |
 | `omcp doctor` | Diagnose config, PATH, wrapper and profile problems |
 | `omcp setup [--force]` | Install the `opencode` wrapper |
@@ -187,11 +189,16 @@ The main menu lists **profiles only**. Use ↑/↓ to move the highlight and Ent
 | `d` | Delete the **highlighted** profile (servers stay configured, with confirmation) |
 | `a` | Register a new server and add it to the **highlighted** profile |
 | `s` | Sync from `opencode.json` and add imported servers to the **highlighted** profile |
+| `m` | Manage MCPs — list every server, edit (`e`) or delete (`d`) one |
 | `c` | Create a new profile |
 | `x` | Custom session (this run only) |
 | `q` | Quit without launching |
 
 With `full`, `a` and `s` do not add explicit entries because the wildcard already covers every server.
+
+`d` on the main menu deletes a **profile**; servers stay configured. To delete a **server**, press `m` (or run `omcp servers`). In that list, `e` edits the highlighted server and `d` removes it from the catalog, every profile, and `opencode.json`. Deleting asks for confirmation; `omcp server rm <name> --force` skips it for scripts. Plugin-provided servers (`*`) cannot be edited or deleted.
+
+Editing a server lets you change its name, how it starts, description, and tags. Changing "how it starts" re-runs the same wizard as `add`, including the optional environment variables prompt. Leaving that prompt empty is correct for servers that need no credentials.
 
 Every sub-menu has a **← Back** option that returns to the main menu. Cancelling a text or multiselect prompt with `Ctrl+C` also returns to the menu instead of exiting `omcp`.
 

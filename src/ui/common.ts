@@ -66,3 +66,16 @@ export function summarizeServers(names: string[]): string {
 export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
+
+/** Return to the parent menu on cancellation instead of exiting omcp. */
+export async function runSubFlow(flow: () => Promise<void>): Promise<void> {
+  try {
+    await flow();
+  } catch (error) {
+    if (error instanceof CancelledError) {
+      p.log.info("Back to menu.");
+      return;
+    }
+    throw error;
+  }
+}
