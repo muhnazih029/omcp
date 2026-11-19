@@ -15,28 +15,12 @@ type ProfileSeed = {
 };
 
 /**
- * Starter profiles. Names that are not configured are dropped; a profile whose
- * seeds are all missing is skipped so a fresh install never shows dead entries.
+ * Starter profiles. A fresh store always gets all five profiles, even when no
+ * MCP server is configured yet. `build`, `design` and `think` start empty and
+ * are filled in by the user; `full` uses the "*" wildcard so it always means
+ * every server currently in the catalog.
  */
 const PROFILE_SEEDS: ProfileSeed[] = [
-  {
-    name: "design",
-    emoji: "🎨",
-    description: "UI/UX, wireframes and visual work",
-    servers: ["pencil", "figma", "playwright", "shadcn", "magic"],
-  },
-  {
-    name: "think",
-    emoji: "🧠",
-    description: "Research, brainstorming and long-term memory",
-    servers: ["claude-mem", "context7", "sequential-thinking", "memory", "deepwiki"],
-  },
-  {
-    name: "build",
-    emoji: "💻",
-    description: "Day-to-day coding, reviews and task tracking",
-    servers: ["github", "gitlab", "context7", "dank-todo", "sentry", "postgres"],
-  },
   {
     name: "full",
     emoji: "⚡",
@@ -47,6 +31,24 @@ const PROFILE_SEEDS: ProfileSeed[] = [
     name: "minimal",
     emoji: "🍃",
     description: "No server at all, cheapest context",
+    servers: [],
+  },
+  {
+    name: "build",
+    emoji: "💻",
+    description: "Day-to-day coding, reviews and task tracking",
+    servers: [],
+  },
+  {
+    name: "design",
+    emoji: "🎨",
+    description: "UI/UX, wireframes and visual work",
+    servers: [],
+  },
+  {
+    name: "think",
+    emoji: "🧠",
+    description: "Research, brainstorming and long-term memory",
     servers: [],
   },
 ];
@@ -128,30 +130,32 @@ export function bootstrapStore(): Store {
     };
   }
 
-  const available = Object.keys(store.catalog);
   for (const seed of PROFILE_SEEDS) {
-    const selected =
-      seed.servers === "*" ? available : seed.servers.filter((name) => available.includes(name));
-
-    if (selected.length === 0 && seed.servers !== "*" && seed.servers.length > 0) continue;
-    if (selected.length === 0 && seed.servers === "*" && available.length === 0) continue;
-
     store.profiles[seed.name] = {
       emoji: seed.emoji,
       description: seed.description,
-      servers: selected,
-    };
-  }
-
-  if (store.profiles.minimal === undefined) {
-    store.profiles.minimal = {
-      emoji: "🍃",
-      description: "No server at all, cheapest context",
-      servers: [],
+      servers: seed.servers === "*" ? ["*"] : [],
     };
   }
 
   return store;
+}
+
+/**
+ * Resolve a profile's server list. The special `["*"]` value means every
+ * server currently in the catalog, so the `full` profile stays correct as
+ * servers are added later without rewriting the profile.
+ */
+export function profileServerNames(store: Store, profile: Profile): string[] {
+  if (profile.servers.length === 1 && profile.servers[0] === "*") {
+    return Object.keys(store.catalog);
+  }
+  return profile.servers;
+}
+
+/** True when a profile uses the dynamic "all servers" wildcard. */
+export function isWildcardProfile(profile: Profile): boolean {
+  return profile.servers.length === 1 && profile.servers[0] === "*";
 }
 
 function defaultDescription(name: string, server: ServerConfig): string {
@@ -198,7 +202,7 @@ export function enabledServers(): string[] {
 export function activeProfile(store: Store): string | null {
   const enabled = [...enabledServers()].sort().join(",");
   for (const [name, profile] of Object.entries(store.profiles)) {
-    const declared = [...profile.servers].sort().join(",");
+    const declared = [...profileServerNames(store, profile)].sort().join(",");
     if (declared === enabled) return name;
   }
   return null;

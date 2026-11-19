@@ -8,7 +8,9 @@ import { removeWrapper, setupWrapper } from "./setup.ts";
 import {
   activeProfile,
   enabledServers,
+  isWildcardProfile,
   loadStore,
+  profileServerNames,
   removeProfile,
   resolveProfile,
   saveStore,
@@ -97,7 +99,12 @@ function printProfileList(store: Store): void {
     for (const name of names) {
       const profile = store.profiles[name]!;
       const marker = name === active ? "●" : "○";
-      const servers = profile.servers.length === 0 ? "—" : profile.servers.join(", ");
+      const resolved = profileServerNames(store, profile);
+      const servers = isWildcardProfile(profile)
+        ? `all configured servers (${resolved.length})`
+        : resolved.length === 0
+          ? "—"
+          : resolved.join(", ");
       const last = name === store.lastProfile ? "  (last used)" : "";
       console.log(`  ${marker} ${name.padEnd(width)}  ${servers}${last}`);
     }
@@ -145,7 +152,7 @@ function applyAndReport(store: Store, profileName: string): void {
   }
 
   success(`Profile "${profileName}": ${summarizeNames(result.enabled)}`);
-  if (profile.servers.length === 0) info("This profile enables no servers.");
+  if (profileServerNames(store, profile).length === 0) info("This profile enables no servers.");
   info(`Wrote ${shortPath(result.path)}`);
   info("OpenCode reloads MCP servers on save, no restart needed.");
 }
@@ -299,7 +306,7 @@ export async function main(argv: string[]): Promise<number> {
 
   if (first === "custom") {
     requireTty();
-    return await customSession(store, tail);
+    return (await customSession(store, tail)) ?? 0;
   }
 
   if (first === "setup") {

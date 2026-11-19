@@ -1,5 +1,5 @@
 import { readConfig, writeServers } from "./opencode.ts";
-import { resolveProfile, syncCatalogFromConfig } from "./store.ts";
+import { profileServerNames, resolveProfile, syncCatalogFromConfig } from "./store.ts";
 import type { ServerConfig, Store } from "./types.ts";
 
 export type ApplyResult = {
@@ -55,5 +55,5 @@ export function applyProfile(
   options: { dryRun?: boolean } = {},
 ): ApplyResult {
   const { profile } = resolveProfile(store, profileName);
-  return applyServerSet(store, profile.servers, options);
+  return applyServerSet(store, profileServerNames(store, profile), options);
 }

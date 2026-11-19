@@ -4,7 +4,7 @@ import { findBinaryOnPath, isWrapper } from "./launcher.ts";
 import { configDir, findConfigPath, storePath } from "./paths.ts";
 import { extractServers, readConfig } from "./opencode.ts";
 import { wrapperPath } from "./setup.ts";
-import { enabledServers } from "./store.ts";
+import { enabledServers, profileServerNames } from "./store.ts";
 import type { Store } from "./types.ts";
 import { shortPath } from "./util.ts";
 
@@ -73,7 +73,7 @@ export function collectChecks(store: Store): Check[] {
   });
 
   const brokenProfiles = Object.entries(store.profiles).filter(([, profile]) =>
-    profile.servers.some((name) => !(name in store.catalog)),
+    profileServerNames(store, profile).some((name) => !(name in store.catalog)),
   );
   checks.push({
     ok: brokenProfiles.length === 0,
@@ -84,7 +84,9 @@ export function collectChecks(store: Store): Check[] {
         ? `${Object.keys(store.profiles).length} profile(s), all servers resolvable`
         : brokenProfiles
             .map(([name, profile]) => {
-              const missing = profile.servers.filter((server) => !(server in store.catalog));
+              const missing = profileServerNames(store, profile).filter(
+                (server) => !(server in store.catalog),
+              );
               return `${name} → missing ${missing.join(", ")}`;
             })
             .join("; "),

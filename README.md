@@ -5,28 +5,33 @@
 Turn MCP servers on and off per workflow instead of paying the context cost of every server, on every request, forever.
 
 ```
-$ opencode
+$ omcp
 
 ┌  omcp
-│  Active profile : build
-│  Enabled servers: github, context7, dank-todo
+│  Active profile : full
+│  Enabled servers: no servers
 │  Config         : ~/.config/opencode/opencode.json
 │
-◆  What do you want to do?
-│  ○ 🎨 design   pencil
-│  ○ 🧠 think    claude-mem, context7
-│  ● 💻 build    github, context7, dank-todo · active, last used
-│  ○ ⚡ full     claude-mem, github, context7, pencil, dank-todo
-│  ○ 🍃 minimal  no servers
-│  ○ 🎯 Custom session      pick servers for this run only
-│  ○ ✏️  Edit a profile      change which servers a profile enables
-│  ○ ➕ Create a profile     new reusable preset
-│  ○ 📦 Add a server         register or install an MCP server
-│  ○ 🔄 Sync from opencode.json
-│  ○ 🗑  Delete a profile
-│  ○ ✖  Quit
+│  Keys  1-5 profiles · x custom · e edit · c create · a add · s sync · d delete · q quit
+│        add: register/install a new MCP server   sync: import servers from opencode.json
+│
+◆  Press a key to choose
+│   1  💻 build (no servers)
+│   2  🎨 design (no servers)
+│   3  ⚡ full (all configured servers)
+│   4  🍃 minimal (no servers)
+│   5  🧠 think (no servers)
+│   x  🎯 Custom session (servers for this run only)
+│   e  ✏️ Edit a profile (change a profile's servers)
+│   c  ➕ Create a profile (new reusable preset)
+│   a  📦 Add a server (register a new MCP server)
+│   s  🔄 Sync from opencode.json (import servers added elsewhere)
+│   d  🗑 Delete a profile (remove a preset, keep servers)
+│   q  ✖ Quit (launch nothing)
 └
 ```
+
+A brand-new install already shows all five profiles, even with zero MCP servers configured. The starter profiles are empty — you decide which servers belong in each one.
 
 ---
 
@@ -38,7 +43,9 @@ Every MCP server configured in OpenCode connects at startup, and its tool schema
 
 ## Features
 
-- **Profiles** — `design`, `think`, `build`, `full`, `minimal` seeded on first run, all editable.
+- **Starter profiles** — `build`, `design`, `full`, `minimal`, `think` always exist, even with zero servers.
+- **Dynamic `full`** — always means every server currently in your catalog; new servers join automatically.
+- **Keyboard shortcuts** — press a single key to pick a profile or action, no arrow-key trekking.
 - **Persistent edits** — change what a profile contains once and it stays that way.
 - **Custom sessions** — pick an ad-hoc server set for one run, restored automatically when OpenCode exits.
 - **Server installer** — register `bunx` / `npx` packages, existing commands, remote URLs, or clone a Git repo and run its install/build steps.
@@ -122,17 +129,41 @@ omcp --continue
 
 ## Starter profiles
 
-Created on first run, only for servers you actually have configured:
+Created on first run regardless of how many servers you have:
 
-| Profile | Servers | Use it for |
+| Profile | Initial servers | Use it for |
 | --- | --- | --- |
-| `🎨 design` | `pencil`, `figma`, `playwright`, `shadcn`, `magic` | UI/UX, wireframes, visual work |
-| `🧠 think` | `claude-mem`, `context7`, `sequential-thinking`, `memory`, `deepwiki` | Research, brainstorming, long-term memory |
-| `💻 build` | `github`, `gitlab`, `context7`, `dank-todo`, `sentry`, `postgres` | Day-to-day coding, reviews, tasks |
-| `⚡ full` | every configured server | Complex multi-discipline sessions |
+| `💻 build` | none | Day-to-day coding, reviews, tasks |
+| `🎨 design` | none | UI/UX, wireframes, visual work |
+| `⚡ full` | every configured server (dynamic) | Complex multi-discipline sessions |
 | `🍃 minimal` | none | Quick questions, edits, cheapest context |
+| `🧠 think` | none | Research, brainstorming, long-term memory |
 
-Names that are not installed are dropped, and a profile whose servers are all missing is skipped. Edit any of them with `omcp edit`.
+`build`, `design` and `think` start empty on purpose. Add servers to them with `omcp edit <name>` or while registering a new server. `full` stores the wildcard `["*"]`, so it expands to your whole catalog every time you apply it — a server added later is included without touching the profile.
+
+`Custom session` is not a saved profile: it applies a one-off server set and restores the previous config when OpenCode exits.
+
+## Menu shortcuts
+
+The menu reacts to single keypresses. The same keys are listed in the legend at the top of the menu.
+
+| Key | Action |
+| --- | --- |
+| `1`–`5` | Profiles in stable alphabetical order: build, design, full, minimal, think |
+| `x` | Custom session (this run only) |
+| `e` | Edit a profile — change which servers it enables |
+| `c` | Create a new profile |
+| `a` | Add a server — register or install a new MCP definition |
+| `s` | Sync — import servers added to `opencode.json` elsewhere |
+| `d` | Delete a profile (servers stay configured) |
+| `q` | Quit without launching |
+
+Every sub-menu has a **← Back** option that returns to the main menu. Cancelling a text or multiselect prompt with `Ctrl+C` also returns to the menu instead of exiting `omcp`.
+
+### "Add a server" vs "Sync"
+
+- **Add a server** (`a`) registers a brand-new MCP definition: a `bunx`/`npx` package, an existing command, a remote HTTP endpoint, or a Git repository that is cloned and built. The server lands in the catalog **disabled**; put it in a profile with `e` to actually enable it.
+- **Sync** (`s`) imports servers you already added elsewhere, for example with `opencode mcp add` or by hand-editing `opencode.json`. It does not install anything and never overwrites definitions you changed by hand.
 
 ## How it works
 

@@ -1,9 +1,9 @@
 import * as p from "@clack/prompts";
 import { installFromGit, type InstallProgress } from "../install.ts";
-import { saveStore, upsertCatalogEntry } from "../store.ts";
+import { isWildcardProfile, profileServerNames, saveStore, upsertCatalogEntry } from "../store.ts";
 import type { InstallRecipe, ServerConfig, Store } from "../types.ts";
 import { splitCommand } from "../util.ts";
-import { ask } from "./common.ts";
+import { ask, backOption, BACK_VALUE, shortenHint } from "./common.ts";
 
 type Kind = "bunx" | "npx" | "command" | "remote" | "git";
 
@@ -46,7 +46,7 @@ function parseEnv(input: string): Record<string, string> | undefined {
 
 export async function addServerFlow(store: Store): Promise<string | null> {
   const kind = await ask(
-    await p.select<Kind>({
+    await p.select<Kind | typeof BACK_VALUE>({
       message: "How is this server started?",
       options: [
         { value: "bunx", label: "Bun package", hint: "bunx -y <package>" },
@@ -54,9 +54,12 @@ export async function addServerFlow(store: Store): Promise<string | null> {
         { value: "command", label: "Existing command", hint: "a binary or script already on your machine" },
         { value: "remote", label: "Remote server", hint: "Streamable HTTP endpoint" },
         { value: "git", label: "Git repository", hint: "clone, install, build, then run locally" },
+        backOption<Kind | typeof BACK_VALUE>(),
       ],
     }),
   );
+
+  if (kind === BACK_VALUE) return null;
 
   let server: ServerConfig;
   let recipe: InstallRecipe | undefined;
@@ -225,18 +228,21 @@ export async function addServerFlow(store: Store): Promise<string | null> {
   });
 
   const candidates = Object.entries(store.profiles).filter(
-    ([, profile]) => !profile.servers.includes(name),
+    ([, profile]) => !isWildcardProfile(profile) && !profile.servers.includes(name),
   );
 
   if (candidates.length > 0) {
     const picked = await ask(
       await p.multiselect<string>({
         message: "Add this server to which profiles?",
-        options: candidates.map(([profileName, profile]) => ({
-          value: profileName,
-          label: `${profile.emoji ? `${profile.emoji} ` : ""}${profileName}`,
-          hint: profile.servers.length === 0 ? "empty profile" : profile.servers.join(", "),
-        })),
+        options: candidates.map(([profileName, profile]) => {
+          const servers = profileServerNames(store, profile);
+          return {
+            value: profileName,
+            label: `${profile.emoji ? `${profile.emoji} ` : ""}${profileName}`,
+            hint: shortenHint(servers.length === 0 ? "empty profile" : servers.join(", ")),
+          };
+        }),
         required: false,
         initialValues: [],
       }),

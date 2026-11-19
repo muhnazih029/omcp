@@ -5,15 +5,25 @@ import { findConfigPath } from "../paths.ts";
 import {
   activeProfile,
   enabledServers,
+  isWildcardProfile,
   profileLabel,
+  profileServerNames,
   removeProfile,
   resolveProfile,
   saveStore,
   syncCatalogFromConfig,
 } from "../store.ts";
-import type { Store } from "../types.ts";
+import type { Profile, Store } from "../types.ts";
 import { shortPath, slugifyProfileName } from "../util.ts";
-import { ask, serverOptions, summarizeServers } from "./common.ts";
+import {
+  ask,
+  backOption,
+  BACK_VALUE,
+  CancelledError,
+  serverOptions,
+  shortenHint,
+  summarizeServers,
+} from "./common.ts";
 import { addServerFlow } from "./server.ts";
 
 const ACTION = "action:";
@@ -28,9 +38,62 @@ type Choice =
   | { kind: "delete" }
   | { kind: "quit" };
 
-function parseChoice(value: string): Choice {
-  if (!value.startsWith(ACTION)) return { kind: "profile", name: value };
-  const action = value.slice(ACTION.length);
+export type MenuBinding = {
+  key: string;
+  target: string;
+  label: string;
+  hint?: string;
+};
+
+const ACTION_KEYS = ["x", "e", "c", "a", "s", "d", "q"] as const;
+const PROFILE_KEYS = [
+  ..."1234567890".split(""),
+  ..."abcdefghijklmnopqrstuvwxyz".split(""),
+].filter((key) => !ACTION_KEYS.includes(key as (typeof ACTION_KEYS)[number]));
+
+/**
+ * Keys and targets for the main menu. Pure so both the selectKey options and
+ * the legend are generated from the same source and cannot drift apart.
+ */
+export function menuBindings(store: Store): MenuBinding[] {
+  const active = activeProfile(store);
+  const names = Object.keys(store.profiles).sort((a, b) => a.localeCompare(b));
+
+  const profileBindings = names.flatMap((name, index) => {
+    const key = PROFILE_KEYS[index];
+    if (!key) return [];
+    const profile = store.profiles[name]!;
+    const flags: string[] = [];
+    if (name === active) flags.push("active");
+    if (name === store.lastProfile) flags.push("last used");
+    const servers = isWildcardProfile(profile)
+      ? "all configured servers"
+      : profileServerNames(store, profile).length === 0
+        ? "no servers"
+        : summarizeServers(profileServerNames(store, profile));
+    const hint = flags.length > 0 ? `${servers} · ${flags.join(", ")}` : servers;
+
+    return [{ key, target: name, label: profileLabel(name, profile), hint }];
+  });
+
+  return [
+    ...profileBindings,
+    { key: "x", target: `${ACTION}custom`, label: "🎯 Custom session", hint: "servers for this run only" },
+    { key: "e", target: `${ACTION}edit`, label: "✏️ Edit a profile", hint: "change a profile's servers" },
+    { key: "c", target: `${ACTION}create`, label: "➕ Create a profile", hint: "new reusable preset" },
+    { key: "a", target: `${ACTION}add`, label: "📦 Add a server", hint: "register a new MCP server" },
+    { key: "s", target: `${ACTION}sync`, label: "🔄 Sync from opencode.json", hint: "import servers added elsewhere" },
+    { key: "d", target: `${ACTION}delete`, label: "🗑 Delete a profile", hint: "remove a preset, keep servers" },
+    { key: "q", target: `${ACTION}quit`, label: "✖ Quit", hint: "launch nothing" },
+  ];
+}
+
+export function parseChoice(key: string, bindings: MenuBinding[]): Choice {
+  const binding = bindings.find((item) => item.key === key);
+  if (!binding) return { kind: "quit" };
+  if (!binding.target.startsWith(ACTION)) return { kind: "profile", name: binding.target };
+
+  const action = binding.target.slice(ACTION.length);
   switch (action) {
     case "custom":
     case "edit":
@@ -50,61 +113,20 @@ function header(store: Store): string {
   const enabled = enabledServers();
   const configPath = findConfigPath();
 
-  const lines = [
+  return [
     `Active profile : ${active ?? "custom"}`,
     `Enabled servers: ${summarizeServers(enabled)}`,
     `Config         : ${configPath ? shortPath(configPath) : "(not created yet)"}`,
-  ];
-
-  return lines.join("\n");
-}
-
-function menuOptions(store: Store): Array<{ value: string; label: string; hint?: string }> {
-  const active = activeProfile(store);
-  const names = Object.keys(store.profiles);
-
-  const ordered = [...names].sort((a, b) => {
-    if (a === store.lastProfile) return -1;
-    if (b === store.lastProfile) return 1;
-    if (a === active) return -1;
-    if (b === active) return 1;
-    return a.localeCompare(b);
-  });
-
-  const profileChoices = ordered.map((name) => {
-    const profile = store.profiles[name]!;
-    const flags: string[] = [];
-    if (name === active) flags.push("active");
-    if (name === store.lastProfile) flags.push("last used");
-    const servers =
-      profile.servers.length === 0 ? "no servers" : summarizeServers(profile.servers);
-    const suffix = flags.length > 0 ? `${servers} · ${flags.join(", ")}` : servers;
-
-    return {
-      value: name,
-      label: profileLabel(name, profile),
-      hint: suffix,
-    };
-  });
-
-  return [
-    ...profileChoices,
-    { value: `${ACTION}custom`, label: "🎯 Custom session", hint: "pick servers for this run only" },
-    { value: `${ACTION}edit`, label: "✏️  Edit a profile", hint: "change which servers a profile enables" },
-    { value: `${ACTION}create`, label: "➕ Create a profile", hint: "new reusable preset" },
-    { value: `${ACTION}add`, label: "📦 Add a server", hint: "register or install an MCP server" },
-    { value: `${ACTION}sync`, label: "🔄 Sync from opencode.json", hint: "import servers added elsewhere" },
-    { value: `${ACTION}delete`, label: "🗑  Delete a profile", hint: "remove a preset, keep the servers" },
-    { value: `${ACTION}quit`, label: "✖  Quit", hint: "" },
-  ];
+    "",
+    "Keys  1-5 profiles · x custom · e edit · c create · a add · s sync · d delete · q quit",
+    "      add: register/install a new MCP server   sync: import servers from opencode.json",
+  ].join("\n");
 }
 
 async function launch(store: Store, args: string[]): Promise<number> {
   const binary = resolveBinary(store);
   saveStore(store);
-
-  const proc = await launchOpenCode({ binary, args });
-  return proc;
+  return await launchOpenCode({ binary, args });
 }
 
 async function pickServers(
@@ -127,7 +149,29 @@ async function pickServers(
   );
 }
 
-export async function customSession(store: Store, args: string[]): Promise<number> {
+/** Keep `full` dynamic when the user re-selects every registered server. */
+function editedServers(store: Store, profile: Profile, picked: string[]): string[] {
+  if (isWildcardProfile(profile) && picked.length === Object.keys(store.catalog).length) {
+    return ["*"];
+  }
+  return picked;
+}
+
+/** Return to the menu on cancellation instead of exiting omcp. */
+async function runSubFlow(flow: () => Promise<void>): Promise<boolean> {
+  try {
+    await flow();
+    return true;
+  } catch (error) {
+    if (error instanceof CancelledError) {
+      p.log.info("Back to menu.");
+      return false;
+    }
+    throw error;
+  }
+}
+
+export async function customSession(store: Store, args: string[]): Promise<number | null> {
   const previous = enabledServers();
   const picked = await pickServers(store, "Servers for this session only", previous);
 
@@ -156,23 +200,36 @@ export async function editProfile(store: Store, preselected?: string): Promise<v
       : await ask(
           await p.select<string>({
             message: "Which profile do you want to edit?",
-            options: names.map((profileName) => {
-              const profile = store.profiles[profileName]!;
-              return {
-                value: profileName,
-                label: profileLabel(profileName, profile),
-                hint: summarizeServers(profile.servers),
-              };
-            }),
+            options: [
+              ...names.map((profileName) => {
+                const profile = store.profiles[profileName]!;
+                return {
+                  value: profileName,
+                  label: profileLabel(profileName, profile),
+                  hint: shortenHint(
+                    isWildcardProfile(profile)
+                      ? "all configured servers"
+                      : summarizeServers(profileServerNames(store, profile)),
+                  ),
+                };
+              }),
+              backOption(),
+            ],
           }),
         );
 
+  if (name === BACK_VALUE) return;
+
   const profile = store.profiles[name]!;
-  const picked = await pickServers(store, `Servers in "${name}"`, profile.servers);
-  profile.servers = picked;
+  const picked = await pickServers(
+    store,
+    `Servers in "${name}"`,
+    profileServerNames(store, profile),
+  );
+  profile.servers = editedServers(store, profile, picked);
   saveStore(store);
 
-  p.log.success(`Profile "${name}" updated: ${summarizeServers(picked)}`);
+  p.log.success(`Profile "${name}" updated: ${summarizeServers(profileServerNames(store, profile))}`);
 }
 
 export async function createProfile(store: Store): Promise<void> {
@@ -196,7 +253,11 @@ export async function createProfile(store: Store): Promise<void> {
   );
 
   const description = await ask(
-    await p.text({ message: "Description (optional)", placeholder: "What this profile is for", initialValue: "" }),
+    await p.text({
+      message: "Description (optional)",
+      placeholder: "What this profile is for",
+      initialValue: "",
+    }),
   );
 
   const servers = await pickServers(store, `Servers in "${name}"`, []);
@@ -221,16 +282,31 @@ export async function deleteProfile(store: Store): Promise<void> {
   const name = await ask(
     await p.select<string>({
       message: "Which profile do you want to delete?",
-      options: names.map((profileName) => ({
-        value: profileName,
-        label: profileLabel(profileName, store.profiles[profileName]!),
-        hint: summarizeServers(store.profiles[profileName]!.servers),
-      })),
+      options: [
+        ...names.map((profileName) => {
+          const profile = store.profiles[profileName]!;
+          return {
+            value: profileName,
+            label: profileLabel(profileName, profile),
+            hint: shortenHint(
+              isWildcardProfile(profile)
+                ? "all configured servers"
+                : summarizeServers(profileServerNames(store, profile)),
+            ),
+          };
+        }),
+        backOption(),
+      ],
     }),
   );
 
+  if (name === BACK_VALUE) return;
+
   const confirmed = await ask(
-    await p.confirm({ message: `Delete profile "${name}"? Servers stay configured.`, initialValue: false }),
+    await p.confirm({
+      message: `Delete profile "${name}"? Servers stay configured.`,
+      initialValue: false,
+    }),
   );
 
   if (!confirmed) {
@@ -251,19 +327,23 @@ export async function runMenu(store: Store, args: string[]): Promise<number> {
   for (;;) {
     p.note(header(store), "omcp");
 
-    const raw = await ask(
-      await p.select<string>({
-        message: "What do you want to do?",
-        options: menuOptions(store),
-        initialValue: store.lastProfile ?? activeProfile(store) ?? undefined,
+    const bindings = menuBindings(store);
+    const key = await ask(
+      await p.selectKey<string>({
+        message: "Press a key to choose",
+        options: bindings.map((binding) => ({
+          value: binding.key,
+          label: binding.label,
+          hint: binding.hint,
+        })),
       }),
     );
 
-    const choice = parseChoice(raw);
+    const choice = parseChoice(key, bindings);
 
     if (choice.kind === "profile") {
       const { profile } = resolveProfile(store, choice.name);
-      const result = applyServerSet(store, profile.servers);
+      const result = applyServerSet(store, profileServerNames(store, profile));
       store.lastProfile = choice.name;
       saveStore(store);
 
@@ -275,14 +355,26 @@ export async function runMenu(store: Store, args: string[]): Promise<number> {
       return await launch(store, args);
     }
 
-    if (choice.kind === "custom") return await customSession(store, args);
-    if (choice.kind === "edit") await editProfile(store);
-    if (choice.kind === "create") await createProfile(store);
-    if (choice.kind === "delete") await deleteProfile(store);
+    if (choice.kind === "custom") {
+      let code: number | null = null;
+      await runSubFlow(async () => {
+        code = await customSession(store, args);
+      });
+      if (code !== null) return code;
+      continue;
+    }
+
+    if (choice.kind === "edit") await runSubFlow(() => editProfile(store));
+    if (choice.kind === "create") await runSubFlow(() => createProfile(store));
+    if (choice.kind === "delete") await runSubFlow(() => deleteProfile(store));
 
     if (choice.kind === "add") {
-      const added = await addServerFlow(store);
-      if (added) p.log.success(`Server "${added}" registered as disabled until a profile enables it.`);
+      await runSubFlow(async () => {
+        const added = await addServerFlow(store);
+        if (added) {
+          p.log.success(`Server "${added}" registered as disabled until a profile enables it.`);
+        }
+      });
     }
 
     if (choice.kind === "sync") {

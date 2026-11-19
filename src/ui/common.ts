@@ -26,12 +26,27 @@ export type ServerOption = {
   hint?: string;
 };
 
+export type MenuOption<V extends string = string> = { value: V; label: string; hint?: string };
+
+export const BACK_VALUE = "__back__";
+
+/** Option appended to sub-menu selects so users can return without quitting. */
+export function backOption<V extends string = string>(): MenuOption<V> {
+  return { value: BACK_VALUE as V, label: "← Back", hint: "back to the main menu" };
+}
+
+/** Keep hints on one line in narrow terminals. */
+export function shortenHint(value: string | undefined, max = 48): string | undefined {
+  if (!value) return undefined;
+  return value.length <= max ? value : `${value.slice(0, max - 1).trimEnd()}…`;
+}
+
 export function serverOptions(store: Store): ServerOption[] {
   return Object.keys(store.catalog)
     .sort((a, b) => a.localeCompare(b))
     .map((name) => {
       const entry = store.catalog[name]!;
-      const hint = entry.description ?? describeCommand(entry.server.command);
+      const hint = shortenHint(entry.description ?? describeCommand(entry.server.command));
       return { value: name, label: name, hint };
     });
 }

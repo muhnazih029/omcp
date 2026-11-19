@@ -17,7 +17,7 @@ function seed(dir: string) {
 }
 
 describe("bootstrapStore", () => {
-  test("imports every server and seeds usable starter profiles", async () => {
+  test("imports every server and seeds all five starter profiles empty", async () => {
     const dir = ensureSandbox();
     await seed(dir);
 
@@ -31,21 +31,35 @@ describe("bootstrapStore", () => {
       "pencil",
     ]);
 
-    expect(store.profiles.design?.servers).toEqual(["pencil"]);
-    expect(store.profiles.think?.servers).toEqual(["claude-mem", "context7"]);
-    expect(store.profiles.build?.servers).toEqual(["github", "context7", "dank-todo"]);
-    expect(store.profiles.full?.servers).toHaveLength(5);
+    expect(Object.keys(store.profiles).sort()).toEqual([
+      "build",
+      "design",
+      "full",
+      "minimal",
+      "think",
+    ]);
+    expect(store.profiles.design?.servers).toEqual([]);
+    expect(store.profiles.think?.servers).toEqual([]);
+    expect(store.profiles.build?.servers).toEqual([]);
+    expect(store.profiles.full?.servers).toEqual(["*"]);
     expect(store.profiles.minimal?.servers).toEqual([]);
   });
 
-  test("skips starter profiles whose servers are not installed", async () => {
+  test("still seeds all five profiles when the catalog is tiny", async () => {
     const dir = ensureSandbox();
     await sandboxConfig(dir, {
       mcp: { only: { type: "local", command: ["only-mcp"] } },
     });
 
     const store = bootstrapStore();
-    expect(Object.keys(store.profiles).sort()).toEqual(["full", "minimal"]);
+    expect(Object.keys(store.profiles).sort()).toEqual([
+      "build",
+      "design",
+      "full",
+      "minimal",
+      "think",
+    ]);
+    expect(store.catalog.only).toBeDefined();
   });
 });
 
@@ -55,6 +69,7 @@ describe("applyProfile", () => {
     const configPath = await seed(dir);
 
     const store = loadStore();
+    store.profiles.design!.servers = ["pencil"];
     const result = applyProfile(store, "design");
 
     expect(result.enabled).toEqual(["pencil"]);
@@ -66,6 +81,22 @@ describe("applyProfile", () => {
     expect(servers.github.disabled).toBe(true);
     expect(servers.context7.disabled).toBe(true);
     expect(written.model).toBe("9router/main");
+  });
+
+  test("full profile expands to every catalog server", async () => {
+    const dir = ensureSandbox();
+    const configPath = await seed(dir);
+
+    const store = loadStore();
+    const result = applyProfile(store, "full");
+
+    expect(result.enabled).toEqual(Object.keys(store.catalog));
+    expect(result.missing).toEqual([]);
+
+    const written = await readJson(configPath);
+    for (const name of Object.keys(written.mcp.servers)) {
+      expect(written.mcp.servers[name].disabled).toBeUndefined();
+    }
   });
 
   test("minimal profile disables everything but keeps definitions", async () => {
@@ -97,6 +128,7 @@ describe("activeProfile", () => {
     await seed(dir);
 
     const store = loadStore();
+    store.profiles.think!.servers = ["claude-mem", "context7"];
     applyProfile(store, "think");
     expect(activeProfile(store)).toBe("think");
 
