@@ -67,7 +67,7 @@ export function setupWrapper(options: { force?: boolean; realBinary?: string } =
     '  exec "$OMCP_REAL_OPENCODE" "$@"',
     "fi",
     "",
-    `exec ${command} "$@"`,
+    `OMCP_AS_OPENCODE=1 exec ${command} "$@"`,
     "",
   ].join("\n");
 

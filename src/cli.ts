@@ -191,6 +191,20 @@ export async function main(argv: string[]): Promise<number> {
 
   const store = loadStore();
 
+  // When invoked through the `opencode` wrapper, stay transparent: a help or
+  // version request was meant for the real binary, not for omcp.
+  if (
+    process.env.OMCP_AS_OPENCODE &&
+    (first === "help" ||
+      first === "--help" ||
+      first === "-h" ||
+      first === "version" ||
+      first === "--version" ||
+      first === "-v")
+  ) {
+    return await launchWithArgs(store, rest);
+  }
+
   if (first === "help" || first === "--help" || first === "-h") {
     process.stdout.write(HELP);
     return 0;
