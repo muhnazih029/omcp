@@ -1,6 +1,7 @@
 import { isCancel, SelectPrompt } from "@clack/core";
 import * as p from "@clack/prompts";
 import { applyServerSet } from "../apply.ts";
+import { describeExternal, externalServers, markExternal } from "../external.ts";
 import { launchOpenCode, resolveBinary } from "../launcher.ts";
 import { findConfigPath } from "../paths.ts";
 import {
@@ -129,6 +130,7 @@ function renderMenu(this: MenuPrompt): string {
 
 function profileHints(store: Store): MenuOption[] {
   const active = activeProfile(store);
+  const external = externalServers(store);
   return Object.keys(store.profiles)
     .sort((a, b) => a.localeCompare(b))
     .flatMap((name) => {
@@ -136,11 +138,12 @@ function profileHints(store: Store): MenuOption[] {
       const flags: string[] = [];
       if (name === active) flags.push("active");
       if (name === store.lastProfile) flags.push("last used");
+      const members = profileServerNames(store, profile);
       const servers = isWildcardProfile(profile)
         ? "all configured servers"
-        : profileServerNames(store, profile).length === 0
+        : members.length === 0
           ? "no servers"
-          : summarizeServers(profileServerNames(store, profile));
+          : summarizeServers(members.map((server) => markExternal(server, external)));
       const hint = flags.length > 0 ? `${servers} · ${flags.join(", ")}` : servers;
       return [{ value: name, label: profileLabel(name, profile), hint }];
     });
@@ -176,11 +179,20 @@ async function chooseMenu(store: Store): Promise<MenuChoice> {
 }
 
 function header(store: Store): string {
-  return [
+  const lines = [
     `Active profile : ${activeProfile(store) ?? "custom"}`,
     `Enabled servers: ${summarizeServers(enabledServers())}`,
     `Config         : ${findConfigPath() ? shortPath(findConfigPath()!) : "(not created yet)"}`,
-  ].join("\n");
+  ];
+
+  const external = Object.entries(externalServers(store));
+  if (external.length > 0) {
+    lines.push(
+      `Plugin         : ${external.map(([name, info]) => describeExternal(name, info)).join("; ")}`,
+    );
+  }
+
+  return lines.join("\n");
 }
 
 async function launch(store: Store, args: string[]): Promise<number> {

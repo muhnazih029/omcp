@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import * as p from "@clack/prompts";
 import { applyProfile } from "./apply.ts";
 import { collectChecks } from "./doctor.ts";
+import { describeExternal, externalServers, markExternal } from "./external.ts";
 import { launchOpenCode, resolveBinary } from "./launcher.ts";
 import { configDir, findConfigPath, storePath } from "./paths.ts";
 import { removeWrapper, setupWrapper } from "./setup.ts";
@@ -90,6 +91,7 @@ function success(message: string): void {
 function printProfileList(store: Store): void {
   const active = activeProfile(store);
   const names = Object.keys(store.profiles).sort();
+  const external = externalServers(store);
 
   if (names.length === 0) {
     console.log("No profiles yet. Run `omcp new` to create one.");
@@ -104,7 +106,7 @@ function printProfileList(store: Store): void {
         ? `all configured servers (${resolved.length})`
         : resolved.length === 0
           ? "—"
-          : resolved.join(", ");
+          : resolved.map((server) => markExternal(server, external)).join(", ");
       const last = name === store.lastProfile ? "  (last used)" : "";
       console.log(`  ${marker} ${name.padEnd(width)}  ${servers}${last}`);
     }
@@ -119,12 +121,17 @@ function printProfileList(store: Store): void {
     return;
   }
 
-  const width = Math.max(...catalog.map((name) => name.length));
+  const labels = catalog.map((name) => markExternal(name, external));
+  const width = Math.max(...labels.map((label) => label.length));
   console.log("Servers");
-  for (const name of catalog) {
+  catalog.forEach((name, index) => {
     const marker = enabled.has(name) ? "✓" : "·";
     const description = store.catalog[name]?.description ?? "";
-    console.log(`  ${marker} ${name.padEnd(width)}  ${description}`);
+    console.log(`  ${marker} ${labels[index]!.padEnd(width)}  ${description}`);
+  });
+  if (Object.keys(external).length > 0) {
+    console.log("");
+    console.log("* plugin-provided — omcp cannot disable it");
   }
 }
 
@@ -133,12 +140,19 @@ function printStatus(store: Store): void {
   const enabled = enabledServers();
   const active = activeProfile(store);
   const disabled = Object.keys(store.catalog).filter((name) => !enabled.includes(name));
+  const external = externalServers(store);
+  const list = (names: string[]): string =>
+    names.length > 0 ? names.map((name) => markExternal(name, external)).join(", ") : "none";
+  const pluginNotes = Object.entries(external).map(([name, info]) => describeExternal(name, info));
 
   console.log(`Config    ${configPath ? shortPath(configPath) : `${shortPath(configDir())} (not created)`}`);
   console.log(`State     ${shortPath(storePath())}`);
   console.log(`Profile   ${active ?? "custom"}`);
-  console.log(`Enabled   ${enabled.length > 0 ? enabled.join(", ") : "none"}`);
-  console.log(`Disabled  ${disabled.length > 0 ? disabled.join(", ") : "none"}`);
+  console.log(`Enabled   ${list(enabled)}`);
+  console.log(`Disabled  ${list(disabled)}`);
+  if (pluginNotes.length > 0) {
+    console.log(`Plugin    ${pluginNotes.join("; ")}`);
+  }
 }
 
 function applyAndReport(store: Store, profileName: string): void {

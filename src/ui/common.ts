@@ -1,4 +1,5 @@
 import * as p from "@clack/prompts";
+import { externalServers } from "../external.ts";
 import type { Store } from "../types.ts";
 import { describeCommand } from "../util.ts";
 
@@ -42,11 +43,16 @@ export function shortenHint(value: string | undefined, max = 48): string | undef
 }
 
 export function serverOptions(store: Store): ServerOption[] {
+  const external = externalServers(store);
+
   return Object.keys(store.catalog)
     .sort((a, b) => a.localeCompare(b))
     .map((name) => {
       const entry = store.catalog[name]!;
-      const hint = shortenHint(entry.description ?? describeCommand(entry.server.command));
+      const base = entry.description ?? describeCommand(entry.server.command);
+      const hint = shortenHint(
+        name in external ? ["plugin-provided", base].filter(Boolean).join(" · ") : base,
+      );
       return { value: name, label: name, hint };
     });
 }

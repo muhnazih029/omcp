@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { dirname } from "node:path";
+import { externalServers } from "./external.ts";
 import { findBinaryOnPath, isWrapper } from "./launcher.ts";
 import { configDir, findConfigPath, storePath } from "./paths.ts";
 import { extractServers, readConfig } from "./opencode.ts";
@@ -91,6 +92,18 @@ export function collectChecks(store: Store): Check[] {
             })
             .join("; "),
   });
+
+  const external = Object.entries(externalServers(store));
+  if (external.length > 0) {
+    checks.push({
+      ok: false,
+      warn: true,
+      label: "Plugin-provided MCPs",
+      detail: external
+        .map(([name, info]) => `${name} (${info.reason}); disabled in config does not unload it`)
+        .join("; "),
+    });
+  }
 
   const real = findBinaryOnPath();
   checks.push({

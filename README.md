@@ -136,6 +136,17 @@ Created on first run regardless of how many servers you have:
 
 `Custom session` is not a saved profile: it applies a one-off server set and restores the previous config when OpenCode exits.
 
+## Plugin-provided servers
+
+Some MCP servers are not started from `mcp.servers` at all — an OpenCode plugin owns them, or their command runs from inside a plugin install. `omcp` marks those with `*` in `list`, `status`, the profile editor and `doctor`:
+
+```text
+Disabled  claude-mem*, github
+Plugin    claude-mem (declared by claude-mem.js) — cannot be disabled by omcp
+```
+
+`omcp` still writes `disabled: true` for them, so OpenCode will not spawn the copy defined in config. But the plugin keeps its own copy alive, so switching profiles cannot turn it off. To disable one for real, remove or rename its file under `~/.config/opencode/plugins/` and stop any daemon it started.
+
 ## Menu navigation and shortcuts
 
 The main menu lists **profiles only**. Use ↑/↓ to move the highlight and Enter to apply the selected profile. The key hints are printed as a footer under the list — they are text, not extra menu rows.
