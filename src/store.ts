@@ -83,6 +83,9 @@ export function normalizeStore(input: unknown): Store {
 
   if (typeof raw.lastProfile === "string") store.lastProfile = raw.lastProfile;
   if (typeof raw.opencodeBinary === "string") store.opencodeBinary = raw.opencodeBinary;
+  if (raw.launchMode === "wrapper" || raw.launchMode === "omcp" || raw.launchMode === "later") {
+    store.launchMode = raw.launchMode;
+  }
 
   if (raw.profiles && typeof raw.profiles === "object") {
     for (const [name, profile] of Object.entries(raw.profiles)) {

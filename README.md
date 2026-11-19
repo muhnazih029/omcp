@@ -58,8 +58,16 @@ git clone https://github.com/muhnazih029/omcp.git
 cd omcp
 bun install
 bun link          # exposes the `omcp` command
-omcp setup        # installs the `opencode` wrapper into ~/.local/bin
+omcp              # first run asks how you want to launch
 ```
+
+On your first `omcp` run you pick how to launch:
+
+- **Use the `omcp` command only** — best for a quick try, leaves `opencode` untouched.
+- **Install the `opencode` wrapper** — typing plain `opencode` opens the profile menu first.
+- **Decide later** — run `omcp setup` whenever you want.
+
+The choice is saved in `~/.config/opencode/omcp.json`, so you are only asked once. You can change it any time with `omcp setup` or `omcp setup --remove`.
 
 `omcp setup` writes `~/.local/bin/opencode`, which opens the menu and then hands the terminal to the real binary. It never replaces the real binary and falls back to it when:
 

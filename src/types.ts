@@ -45,6 +45,8 @@ export type Store = {
   lastProfile?: string;
   /** Absolute path of the real OpenCode binary, skipping the omcp wrapper. */
   opencodeBinary?: string;
+  /** Choice made in the first-run launcher onboarding. Absent until onboarded. */
+  launchMode?: "wrapper" | "omcp" | "later";
   profiles: Record<string, Profile>;
   catalog: Record<string, CatalogEntry>;
 };

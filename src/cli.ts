@@ -17,6 +17,7 @@ import {
 import type { Store } from "./types.ts";
 import { CancelledError, errorMessage } from "./ui/common.ts";
 import { createProfile, customSession, editProfile, runMenu } from "./ui/menu.ts";
+import { runOnboarding } from "./ui/onboarding.ts";
 import { addServerFlow } from "./ui/server.ts";
 import { shortPath } from "./util.ts";
 
@@ -225,6 +226,9 @@ export async function main(argv: string[]): Promise<number> {
   if (first === undefined) {
     if (process.env.OMCP_NO_MENU) return await launchWithArgs(store, []);
     requireTty();
+    // A wrapper invocation already implies the wrapper choice, and guests
+    // running omcp for the first time get to pick before the menu appears.
+    if (!store.launchMode && !process.env.OMCP_AS_OPENCODE) await runOnboarding(store);
     return await runMenu(store, []);
   }
 
@@ -301,6 +305,8 @@ export async function main(argv: string[]): Promise<number> {
   if (first === "setup") {
     if (tail.includes("--remove")) {
       const result = removeWrapper();
+      store.launchMode = "omcp";
+      saveStore(store);
       success(result.removed ? `Removed ${shortPath(result.path)}` : "No wrapper to remove.");
       return 0;
     }
@@ -310,6 +316,7 @@ export async function main(argv: string[]): Promise<number> {
     const realBinary = binaryIndex !== -1 ? tail[binaryIndex + 1] : undefined;
 
     const result = setupWrapper({ force, realBinary });
+    store.launchMode = "wrapper";
     saveStore(store);
     success(`Wrapper installed at ${shortPath(result.path)}`);
     info(`Real binary: ${result.realBinary}`);

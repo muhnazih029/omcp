@@ -12,7 +12,7 @@ export class CancelledError extends Error {
 /** Unwrap a clack prompt result, turning the cancel sentinel into an exception. */
 type Cancel = typeof p.CANCEL_SYMBOL;
 
-export function ask(value: string | Cancel): string;
+export function ask<T extends string>(value: T | Cancel): T;
 export function ask(value: boolean | Cancel): boolean;
 export function ask<T>(value: T[] | Cancel): T[];
 export function ask(value: unknown): unknown {
