@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { spawnInherit } from "./runtime.ts";
 import type { ServerConfig } from "./types.ts";
 import { splitCommand } from "./util.ts";
 
@@ -20,13 +21,7 @@ export type InstallProgress = {
 };
 
 async function run(command: string[], cwd?: string): Promise<void> {
-  const proc = Bun.spawn(command, {
-    cwd,
-    stdout: "inherit",
-    stderr: "inherit",
-    stdin: "inherit",
-  });
-  const code = await proc.exited;
+  const code = await spawnInherit(command, { cwd });
   if (code !== 0) {
     throw new Error(`Command failed (exit ${code}): ${command.join(" ")}`);
   }

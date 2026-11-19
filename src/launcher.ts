@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { spawnInherit } from "./runtime.ts";
 import type { Store } from "./types.ts";
 import { expandHome } from "./paths.ts";
 
@@ -75,11 +76,8 @@ export type LaunchOptions = {
 
 /** Hand the terminal over to the real OpenCode process and return its exit code. */
 export async function launchOpenCode(options: LaunchOptions): Promise<number> {
-  const proc = Bun.spawn([options.binary, ...options.args], {
-    stdio: ["inherit", "inherit", "inherit"],
+  return await spawnInherit([options.binary, ...options.args], {
     cwd: options.cwd,
     env: { ...process.env, OMCP_BYPASS: "1" },
   });
-
-  return await proc.exited;
 }

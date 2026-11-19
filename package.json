@@ -1,20 +1,22 @@
 {
-  "name": "omcp",
+  "name": "omcp-cli",
   "version": "0.1.0",
   "description": "Profile-based MCP manager and launcher for OpenCode. Turn MCP servers on and off per workflow instead of paying the context cost of all of them.",
   "type": "module",
   "bin": {
-    "omcp": "./bin/omcp.ts"
+    "omcp": "./dist/cli.js"
   },
   "scripts": {
     "dev": "bun run bin/omcp.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
-    "build": "bun build bin/omcp.ts --compile --outfile dist/omcp"
+    "build:node": "bun build bin/omcp.ts --target=node --outfile dist/cli.js",
+    "build:binary": "bun build bin/omcp.ts --compile --outfile dist/omcp",
+    "build": "bun run build:node && bun run build:binary",
+    "prepublishOnly": "bun run typecheck && bun test && bun run build:node"
   },
   "files": [
-    "bin",
-    "src",
+    "dist/cli.js",
     "README.md",
     "LICENSE"
   ],
@@ -28,7 +30,7 @@
   ],
   "license": "MIT",
   "engines": {
-    "bun": ">=1.1.0"
+    "node": ">=18.0.0"
   },
   "dependencies": {
     "@clack/core": "^1.6.0",

@@ -58,24 +58,37 @@ Every MCP server configured in OpenCode connects at startup, and its tool schema
 
 - Linux or macOS (Windows is not supported yet)
 - [OpenCode](https://opencode.ai) v2.2 or newer
-
-Building from source additionally needs [Bun](https://bun.sh) 1.1 or newer.
+- Either Node.js 18+ (for `npx`/`npm`) or Bun 1.1+ (for source builds / standalone binary needs no runtime)
 
 ## Install
+
+### One-line installer (recommended, standalone binary)
 
 ```sh
 curl -fsSL https://github.com/muhnazih029/omcp/releases/latest/download/install.sh | sh
 ```
 
-The script picks the binary for your OS and architecture, verifies its SHA-256 checksum, and installs it to `~/.local/bin`. Override the destination with `OMCP_INSTALL_DIR`, or pin a version with `OMCP_VERSION=0.1.0`.
+The script picks the precompiled binary for your OS and architecture, verifies its SHA-256 checksum, and installs it to `~/.local/bin`. Override the destination with `OMCP_INSTALL_DIR`.
 
-### From source
+### Via npm / npx
+
+```sh
+# Run directly without installing
+npx omcp-cli
+
+# Or install globally
+npm install -g omcp-cli
+omcp
+```
+
+### From source (Bun)
 
 ```sh
 git clone https://github.com/muhnazih029/omcp.git
 cd omcp
 bun install
 bun link          # exposes the `omcp` command
+```
 omcp              # first run asks how you want to launch
 ```
 

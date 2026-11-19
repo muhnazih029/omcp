@@ -2,6 +2,7 @@ import { chmodSync, existsSync, mkdirSync, unlinkSync, writeFileSync } from "nod
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { findBinaryOnPath, isWrapper } from "./launcher.ts";
+import { launcherInvocation } from "./runtime.ts";
 
 export function wrapperPath(): string {
   return join(homedir(), ".local", "bin", "opencode");
@@ -10,15 +11,6 @@ export function wrapperPath(): string {
 function shellQuote(value: string): string {
   if (/^[a-zA-Z0-9_\-./:@]+$/.test(value)) return value;
   return `'${value.replace(/'/g, `'\\''`)}'`;
-}
-
-/** Command that re-enters omcp, whether running from source or a compiled binary. */
-export function launcherInvocation(): { command: string; args: string[] } {
-  const main = Bun.main;
-  if (main.endsWith(".ts")) {
-    return { command: process.execPath, args: [main] };
-  }
-  return { command: main, args: [] };
 }
 
 export type SetupResult = {

@@ -1,8 +1,8 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 import { main, reportError } from "../src/cli.ts";
 
 try {
-  const code = await main(Bun.argv.slice(2));
+  const code = await main(process.argv.slice(2));
   process.exit(code);
 } catch (error) {
   process.exit(reportError(error));
