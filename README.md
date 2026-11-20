@@ -200,7 +200,7 @@ With `full`, `a` and `s` do not add explicit entries because the wildcard alread
 
 Editing a server lets you change its name, how it starts, description, and tags. Changing "how it starts" re-runs the same wizard as `add`, including the optional environment variables prompt. Leaving that prompt empty is correct for servers that need no credentials.
 
-Every sub-menu has a **← Back** option that returns to the main menu. Cancelling a text or multiselect prompt with `Ctrl+C` also returns to the menu instead of exiting `omcp`.
+Press **Esc** at any prompt to go back to the previous menu (or cancel the current action). `Ctrl+C` does the same. The menu footers show `esc back` next to the action keys; there are no separate Back rows in the lists.
 
 ### "Add a server" vs "Sync"
 

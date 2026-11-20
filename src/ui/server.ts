@@ -14,7 +14,7 @@ import {
 } from "../store.ts";
 import type { InstallRecipe, ServerConfig, Store } from "../types.ts";
 import { describeCommand, splitCommand } from "../util.ts";
-import { ask, backOption, BACK_VALUE, shortenHint } from "./common.ts";
+import { ask, shortenHint } from "./common.ts";
 
 type Kind = "bunx" | "npx" | "command" | "remote" | "git";
 type Field = "start" | "name" | "description" | "tags";
@@ -66,9 +66,9 @@ function parseTags(input: string): string[] | undefined {
 }
 
 /** Step 1 of add/edit: ask how the server starts and collect its definition. */
-async function collectServerDefinition(): Promise<Definition | null> {
+async function collectServerDefinition(): Promise<Definition> {
   const kind = await ask(
-    await p.select<Kind | typeof BACK_VALUE>({
+    await p.select<Kind>({
       message: "How is this server started?",
       options: [
         { value: "bunx", label: "Bun package", hint: "bunx -y <package>" },
@@ -80,12 +80,9 @@ async function collectServerDefinition(): Promise<Definition | null> {
         },
         { value: "remote", label: "Remote server", hint: "Streamable HTTP endpoint" },
         { value: "git", label: "Git repository", hint: "clone, install, build, then run locally" },
-        backOption<Kind | typeof BACK_VALUE>(),
       ],
     }),
   );
-
-  if (kind === BACK_VALUE) return null;
 
   let server: ServerConfig;
   let recipe: InstallRecipe | undefined;
@@ -234,10 +231,8 @@ async function askServerName(store: Store, suggested: string, exclude?: string):
   );
 }
 
-export async function addServerFlow(store: Store, assignTo?: string): Promise<string | null> {
-  const definition = await collectServerDefinition();
-  if (!definition) return null;
-  const { server, recipe, nameSeed } = definition;
+export async function addServerFlow(store: Store, assignTo?: string): Promise<string> {
+  const { server, recipe, nameSeed } = await collectServerDefinition();
 
   const name = await askServerName(store, suggestName(nameSeed) || "server");
 
@@ -342,7 +337,6 @@ export async function editServerFlow(store: Store, name: string): Promise<boolea
 
   if (fields.includes("start")) {
     const definition = await collectServerDefinition();
-    if (!definition) return false;
     server = definition.server;
     recipe = definition.recipe;
   }

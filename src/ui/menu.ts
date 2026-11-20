@@ -19,8 +19,6 @@ import type { Profile, Store } from "../types.ts";
 import { shortPath, slugifyProfileName } from "../util.ts";
 import {
   ask,
-  backOption,
-  BACK_VALUE,
   CancelledError,
   runSubFlow,
   serverOptions,
@@ -99,7 +97,7 @@ function actionLabel(choice: MenuChoice): string {
 export function menuFooter(): string {
   return [
     "↑/↓ move · Enter apply",
-    "e edit · d delete · a add · s sync · m mcps · c create · x custom · q quit",
+    "e edit · d delete · a add · s sync · m mcps · c create · x custom · q quit · esc back",
   ].join("\n");
 }
 
@@ -285,12 +283,9 @@ export async function editProfile(store: Store, preselected?: string): Promise<v
                   ),
                 };
               }),
-              backOption(),
             ],
           }),
         );
-
-  if (name === BACK_VALUE) return;
 
   const profile = store.profiles[name]!;
   const picked = await pickServers(
@@ -370,12 +365,9 @@ export async function deleteProfile(store: Store, preselected?: string): Promise
                   ),
                 };
               }),
-              backOption(),
             ],
           }),
         );
-
-  if (name === BACK_VALUE) return;
 
   const confirmed = await ask(
     await p.confirm({
@@ -428,13 +420,11 @@ export async function runMenu(store: Store, args: string[]): Promise<number> {
     if (choice.kind === "add") {
       await runSubFlow(async () => {
         const added = await addServerFlow(store, choice.name);
-        if (added) {
-          p.log.success(
-            isWildcardProfile(store.profiles[choice.name]!)
-              ? `Server "${added}" is already included by full.`
-              : `Server "${added}" registered and added to "${choice.name}".`,
-          );
-        }
+        p.log.success(
+          isWildcardProfile(store.profiles[choice.name]!)
+            ? `Server "${added}" is already included by full.`
+            : `Server "${added}" registered and added to "${choice.name}".`,
+        );
       });
     }
 

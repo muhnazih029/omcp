@@ -9,6 +9,10 @@
 - Editing a server can change its name, start command, description and tags; renaming updates every profile that named it.
 - Deleting a server removes it from the catalog, every profile and `opencode.json` in one write.
 
+### Changed
+
+- Removed every `← Back` option row. `Esc` (or `Ctrl+C`) now backs out of any prompt; footers show `esc back` beside the action keys.
+
 ## 0.1.0 — 2026-11-19
 
 First public release.

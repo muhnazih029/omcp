@@ -308,7 +308,7 @@ export async function main(argv: string[]): Promise<number> {
 
   if (first === "add") {
     const added = await addServerFlow(store);
-    if (added) success(`Server "${added}" registered as disabled until a profile enables it.`);
+    success(`Server "${added}" registered as disabled until a profile enables it.`);
     return 0;
   }
 

@@ -29,6 +29,7 @@ describe("menuFooter", () => {
 
     expect(footer).toContain("↑/↓ move");
     expect(footer).toContain("Enter apply");
+    expect(footer).toContain("esc back");
     for (const key of ["e", "d", "a", "s", "m", "c", "x", "q"]) {
       expect(footer).toContain(key);
     }

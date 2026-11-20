@@ -11,18 +11,15 @@ type ServerPrompt = Omit<SelectPrompt<ServerOption>, "prompt">;
 
 export type ServerChoice =
   | { kind: "edit"; name: string }
-  | { kind: "delete"; name: string }
-  | { kind: "back" };
+  | { kind: "delete"; name: string };
 
-/** Map a key to a server action, mirroring the profile menu. */
+/** Map a key to a server action. Esc is handled by the prompt as cancel/back. */
 export function serverAction(key: string | undefined, server: string): ServerChoice | null {
   switch (key?.toLowerCase()) {
     case "e":
       return { kind: "edit", name: server };
     case "d":
       return { kind: "delete", name: server };
-    case "q":
-      return { kind: "back" };
     default:
       return null;
   }
@@ -34,15 +31,13 @@ function actionLabel(choice: ServerChoice): string {
       return `✏️ Edit ${choice.name}`;
     case "delete":
       return `🗑 Delete ${choice.name}`;
-    case "back":
-      return "← Back";
   }
 }
 
 export function serverMenuFooter(): string {
   return [
     "↑/↓ move · Enter edit",
-    "e edit · d delete · q back",
+    "e edit · d delete · esc back",
   ].join("\n");
 }
 
@@ -74,25 +69,15 @@ function renderServerMenu(this: ServerPrompt): string {
 
 function serverOptions(store: Store): ServerOption[] {
   const external = externalServers(store);
-  const names = Object.keys(store.catalog).sort((a, b) => a.localeCompare(b));
 
-  const rows = names.map((name) => {
-    const entry = store.catalog[name]!;
-    const base = entry.description ?? entry.server.url ?? describeCommand(entry.server.command);
-    const hint = name in external
-      ? ["plugin-provided", "read only"].join(" · ")
-      : base;
-    return { value: name, label: markExternal(name, external), hint };
-  });
-
-  if (rows.length === 0) {
-    return [{ value: "__back__", label: "No servers registered", hint: "press Enter to go back" }];
-  }
-
-  return [
-    ...rows,
-    { value: "__back__", label: "← Back", hint: "return to profiles" },
-  ];
+  return Object.keys(store.catalog)
+    .sort((a, b) => a.localeCompare(b))
+    .map((name) => {
+      const entry = store.catalog[name]!;
+      const base = entry.description ?? entry.server.url ?? describeCommand(entry.server.command);
+      const hint = name in external ? "plugin-provided · read only" : base;
+      return { value: name, label: markExternal(name, external), hint };
+    });
 }
 
 async function chooseServer(store: Store): Promise<ServerChoice> {
@@ -106,7 +91,6 @@ async function chooseServer(store: Store): Promise<ServerChoice> {
   let action: ServerChoice | null = null;
   prompt.on("key", (value?: string) => {
     const highlighted = prompt.options[prompt.cursor]?.value ?? "";
-    if (highlighted === "__back__") return;
     const choice = serverAction(value, highlighted);
     if (!choice) return;
     action = choice;
@@ -119,16 +103,19 @@ async function chooseServer(store: Store): Promise<ServerChoice> {
   if (isCancel(submitted)) throw new CancelledError();
   if (action) return action;
 
-  const name = String(submitted);
-  if (name === "__back__") return { kind: "back" };
-  return { kind: "edit", name };
+  return { kind: "edit", name: String(submitted) };
 }
 
 /**
- * Server manager loop. Lists every catalog server; `e` edits, `d` deletes,
- * `q` or the Back row returns to the profile menu.
+ * Server manager loop. Lists every catalog server; `e` edits, `d` deletes.
+ * Esc cancels the prompt, which unwinds to the parent menu.
  */
 export async function manageServers(store: Store): Promise<void> {
+  if (Object.keys(store.catalog).length === 0) {
+    p.log.warn("No servers registered yet. Use “Add a server” first.");
+    return;
+  }
+
   const external = externalServers(store);
   const pluginNotes = Object.entries(external).map(([name, info]) => describeExternal(name, info));
   if (pluginNotes.length > 0) {
@@ -137,7 +124,6 @@ export async function manageServers(store: Store): Promise<void> {
 
   for (;;) {
     const choice = await chooseServer(store);
-    if (choice.kind === "back") return;
 
     if (choice.kind === "edit") {
       await runSubFlow(async () => {

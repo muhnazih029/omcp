@@ -14,7 +14,7 @@ That menu lists every catalog server. The highlighted row is the target:
 
 - `e` edits that server's definition (Enter on the row does the same).
 - `d` deletes that server from the catalog, from every profile, and from `opencode.json`.
-- `q` or the `← Back` row returns to the main menu.
+- `Esc` cancels the prompt and returns to the main menu. There is no separate Back row.
 
 Plugin-provided servers (`*`) are listed but cannot be edited or deleted. `disabled: true` does not stop them, and rewriting their definition would not either.
 

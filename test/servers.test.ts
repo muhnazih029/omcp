@@ -23,9 +23,9 @@ describe("serverAction", () => {
     expect(serverAction("d", "figcraft")).toEqual({ kind: "delete", name: "figcraft" });
   });
 
-  test("q returns to the parent menu and unrelated keys are ignored", () => {
-    expect(serverAction("q", "figcraft")).toEqual({ kind: "back" });
+  test("unrelated keys are ignored; Esc is handled by the prompt as back", () => {
     expect(serverAction("ArrowDown", "figcraft")).toBeNull();
+    expect(serverAction("q", "figcraft")).toBeNull();
     expect(serverAction(undefined, "figcraft")).toBeNull();
   });
 });
@@ -34,7 +34,8 @@ describe("serverMenuFooter", () => {
   test("stays two lines and lists all keys", () => {
     const footer = serverMenuFooter();
     expect(footer.split("\n")).toHaveLength(2);
-    for (const key of ["e", "d", "q"]) expect(footer).toContain(key);
+    for (const key of ["e", "d"]) expect(footer).toContain(key);
+    expect(footer).toContain("esc back");
     expect(footer).toContain("Enter edit");
   });
 });
