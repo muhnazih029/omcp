@@ -1,7 +1,7 @@
 import { isCancel, SelectPrompt } from "@clack/core";
 import * as p from "@clack/prompts";
 import { applyServerSet } from "../apply.ts";
-import { describeExternal, externalServers, markExternal } from "../external.ts";
+import { externalServers, markExternal } from "../external.ts";
 import { launchOpenCode, resolveBinary } from "../launcher.ts";
 import { findConfigPath } from "../paths.ts";
 import {
@@ -30,6 +30,7 @@ import { manageServers } from "./servers.ts";
 
 type MenuOption = { value: string; label: string; hint?: string };
 type MenuPrompt = Omit<SelectPrompt<MenuOption>, "prompt">;
+type MenuView = { store: Store; more: boolean; submitted?: string };
 
 export type MenuChoice =
   | { kind: "profile"; name: string }
@@ -39,13 +40,14 @@ export type MenuChoice =
   | { kind: "add"; name: string }
   | { kind: "sync"; name: string }
   | { kind: "manage" }
+  | { kind: "more" }
   | { kind: "create" }
   | { kind: "quit" };
 
-/**
- * Map a single keypress to an action. Actions that operate on a profile use
- * the currently highlighted one. Pure so the key handler and tests share it.
- */
+const CONTENT_WIDTH = 98;
+const RULE_WIDTH = 104;
+
+/** Map a single keypress to an action. `?` toggles the modal instead of submitting. */
 export function menuAction(key: string | undefined, profile: string): MenuChoice | null {
   switch (key?.toLowerCase()) {
     case "e":
@@ -58,6 +60,8 @@ export function menuAction(key: string | undefined, profile: string): MenuChoice
       return { kind: "sync", name: profile };
     case "m":
       return { kind: "manage" };
+    case "?":
+      return { kind: "more" };
     case "c":
       return { kind: "create" };
     case "x":
@@ -69,107 +73,180 @@ export function menuAction(key: string | undefined, profile: string): MenuChoice
   }
 }
 
-/** Label shown when an action key submits the menu. */
 function actionLabel(choice: MenuChoice): string {
   switch (choice.kind) {
     case "edit":
-      return `✏️ Edit ${choice.name}`;
+      return `Edit ${choice.name}`;
     case "delete":
-      return `🗑 Delete ${choice.name}`;
+      return `Delete ${choice.name}`;
     case "add":
-      return `📦 Add a server to ${choice.name}`;
+      return `Add a server to ${choice.name}`;
     case "sync":
-      return `🔄 Sync into ${choice.name}`;
+      return `Sync into ${choice.name}`;
     case "manage":
-      return "🛠 Manage MCPs";
+      return "Manage MCPs";
+    case "more":
+      return "More actions";
     case "create":
-      return "➕ Create a profile";
+      return "Create a profile";
     case "custom":
-      return "🎯 Custom session";
+      return "Custom session";
     case "quit":
-      return "✖ Quit";
+      return "Quit";
     default:
       return "";
   }
 }
 
-/** Informational footer shown under the profile list, never a selectable row. */
-export function menuFooter(): string {
+/** One-line footer. The remaining keys live in the `?` panel. */
+export function menuFooter(more = false): string {
   return [
-    "↑/↓ move · Enter apply",
-    "e edit · d delete · a add · s sync · m mcps · c create · x custom · q quit · esc back",
+    "[↑↓] Navigate",
+    "[Enter] Apply",
+    "[e] Edit",
+    "[a] Add",
+    more ? "[?] Close" : "[?] More",
+    "[q] Quit",
+  ].join("    ");
+}
+
+/** full and minimal stay on top; the rest are alphabetical. */
+function orderedProfileNames(store: Store): string[] {
+  const pinned = ["full", "minimal"].filter((name) => name in store.profiles);
+  const rest = Object.keys(store.profiles)
+    .filter((name) => !pinned.includes(name))
+    .sort((a, b) => a.localeCompare(b));
+  return [...pinned, ...rest];
+}
+
+function alignRight(left: string, right: string): string {
+  const gap = Math.max(1, CONTENT_WIDTH - 2 - left.length - right.length);
+  return `  ${left}${" ".repeat(gap)}${right}`;
+}
+
+function renderHeader(store: Store): string {
+  const art = ["█▀█ █▀▄▀█ █▀▀ █▀█", "█▄█ █ ▀ █ █▄▄ █▀▀"];
+  const config = findConfigPath() ? shortPath(findConfigPath()!) : "(not created yet)";
+  return [
+    `${art[0]}   OpenCode MCP Profile Manager`,
+    `${art[1]}   Active: ${activeProfile(store) ?? "custom"}  |  Config: ${config}`,
   ].join("\n");
 }
 
-/** Wipe the previous menu/sub-flow so Back does not stack old screens. */
-function clearScreen(): void {
-  if (!process.stdout.isTTY) return;
-  process.stdout.write("\x1b[2J\x1b[H");
+function renderProfileRow(
+  name: string,
+  detail: string,
+  count: string,
+  selected: boolean,
+  active: boolean,
+): string {
+  const marker = selected ? "●" : "○";
+  const badge = active ? "[ACTIVE]" : "        ";
+  const left = `${marker} ${name.padEnd(8)} ${badge}  ${detail}`;
+  return `  ${left.padEnd(CONTENT_WIDTH - 2 - count.length)}${count}`;
 }
 
-function renderMenu(this: MenuPrompt): string {
-  const guide = "│  ";
-  const icon = this.state === "submit" ? "◇" : this.state === "cancel" ? "■" : "◆";
+function renderProfiles(store: Store, selected: string): string {
+  const names = orderedProfileNames(store);
+  const active = activeProfile(store);
+  const external = externalServers(store);
+  const thin = `  ${"─".repeat(RULE_WIDTH - 2)}`;
+  const lines = [alignRight("PROFILES", `${names.length} TOTAL`), thin];
 
-  if (this.state === "submit" || this.state === "cancel") {
-    const chosen = this.options[this.cursor]?.label ?? "";
-    const bottom = this.state === "cancel" ? "\n└" : "";
-    return `${icon}  Choose a profile\n${guide}${chosen}${bottom}\n`;
+  for (const name of names) {
+    const profile = store.profiles[name]!;
+    const members = profileServerNames(store, profile);
+    const detail = name !== selected
+      ? ""
+      : isWildcardProfile(profile)
+        ? `all configured servers (${members.length})`
+        : members.length > 0
+          ? summarizeServers(members.map((server) => markExternal(server, external)))
+          : "";
+    const count = `${members.length} server${members.length === 1 ? "" : "s"}`;
+    lines.push(renderProfileRow(name, detail, count, name === selected, name === active));
   }
 
-  const rows = this.options.map((option, index) => {
-    const marker = index === this.cursor ? "●" : "○";
-    const hint = option.hint ? ` (${option.hint})` : "";
-    return `${guide}${marker} ${option.label}${hint}`;
-  });
+  lines.push(thin);
+  return lines.join("\n");
+}
 
+function renderMore(): string {
+  const box = (text: string) => `  │${text.padEnd(CONTENT_WIDTH - 4)}│`;
   return [
-    `${icon}  Choose a profile`,
-    ...rows,
-    guide,
-    ...menuFooter().split("\n").map((line) => `${guide}${line}`),
-    "└",
-    "",
+    `  ┌─ MORE ACTIONS ${"─".repeat(CONTENT_WIDTH - 19)}┐`,
+    box(""),
+    box("  Profile       [c] Create profile        [d] Delete selected profile"),
+    box("  Servers       [a] Add server            [m] Manage MCP servers"),
+    box("                [s] Sync config           [x] Custom session"),
+    box("  Navigation    [esc] Back / Cancel       [?] Toggle this panel"),
+    box(""),
+    box("  Servers marked * (claude-mem*) come from a plugin and cannot be disabled."),
+    box(""),
+    `  └${"─".repeat(CONTENT_WIDTH - 4)}┘`,
   ].join("\n");
+}
+
+function renderMenu(prompt: MenuPrompt, view: MenuView): string {
+  const selected = prompt.options[prompt.cursor]?.value ?? "";
+  const lines = [
+    renderHeader(view.store),
+    "",
+    "═".repeat(RULE_WIDTH),
+    "",
+    renderProfiles(view.store, selected),
+    "",
+    `  ${menuFooter(view.more)}`,
+  ];
+
+  if (view.submitted) lines.push("", `  ${view.submitted}`);
+  if (view.more) lines.push("", renderMore());
+  lines.push("");
+  return lines.join("\n");
 }
 
 function profileHints(store: Store): MenuOption[] {
   const active = activeProfile(store);
   const external = externalServers(store);
-  return Object.keys(store.profiles)
-    .sort((a, b) => a.localeCompare(b))
-    .flatMap((name) => {
-      const profile = store.profiles[name]!;
-      const flags: string[] = [];
-      if (name === active) flags.push("active");
-      if (name === store.lastProfile) flags.push("last used");
-      const members = profileServerNames(store, profile);
-      const servers = isWildcardProfile(profile)
-        ? "all configured servers"
-        : members.length === 0
-          ? "no servers"
-          : summarizeServers(members.map((server) => markExternal(server, external)));
-      const hint = flags.length > 0 ? `${servers} · ${flags.join(", ")}` : servers;
-      return [{ value: name, label: profileLabel(name, profile), hint }];
-    });
+  return orderedProfileNames(store).flatMap((name) => {
+    const profile = store.profiles[name]!;
+    const flags: string[] = [];
+    if (name === active) flags.push("active");
+    if (name === store.lastProfile) flags.push("last used");
+    const members = profileServerNames(store, profile);
+    const servers = isWildcardProfile(profile)
+      ? "all configured servers"
+      : members.length === 0
+        ? "no servers"
+        : summarizeServers(members.map((server) => markExternal(server, external)));
+    const hint = flags.length > 0 ? `${servers} · ${flags.join(", ")}` : servers;
+    return [{ value: name, label: profileLabel(name, profile), hint }];
+  });
 }
 
-/** Main menu: arrows move through profiles, Enter applies, action keys act on the highlighted profile. */
+/** Main menu: ↑/↓ moves the highlight, Enter applies, action keys act on it. */
 async function chooseMenu(store: Store): Promise<MenuChoice> {
   const options = profileHints(store);
+  const view: MenuView = { store, more: false };
   const prompt = new SelectPrompt<MenuOption>({
     options,
     initialValue: store.lastProfile ?? activeProfile(store) ?? undefined,
-    render: renderMenu,
+    render: function (this: MenuPrompt) {
+      return renderMenu(this, view);
+    },
   });
 
   let action: MenuChoice | null = null;
-  prompt.on("key", (value?: string) => {
+  prompt.on("key", (value?: string, event?: { name?: string; sequence?: string }) => {
     const highlighted = prompt.options[prompt.cursor]?.value ?? "";
-    const choice = menuAction(value, highlighted);
+    const choice = menuAction(value ?? event?.sequence ?? event?.name, highlighted);
     if (!choice) return;
+    if (choice.kind === "more") {
+      view.more = !view.more;
+      return;
+    }
     action = choice;
-    prompt.options[prompt.cursor] = { value: highlighted, label: actionLabel(choice) };
+    view.submitted = actionLabel(choice);
     prompt.value = `action:${choice.kind}`;
     prompt.state = "submit";
   });
@@ -181,23 +258,6 @@ async function chooseMenu(store: Store): Promise<MenuChoice> {
   const name = String(submitted);
   if (!(name in store.profiles)) return { kind: "quit" };
   return { kind: "profile", name };
-}
-
-function header(store: Store): string {
-  const lines = [
-    `Active profile : ${activeProfile(store) ?? "custom"}`,
-    `Enabled servers: ${summarizeServers(enabledServers())}`,
-    `Config         : ${findConfigPath() ? shortPath(findConfigPath()!) : "(not created yet)"}`,
-  ];
-
-  const external = Object.entries(externalServers(store));
-  if (external.length > 0) {
-    lines.push(
-      `Plugin         : ${external.map(([name, info]) => describeExternal(name, info)).join("; ")}`,
-    );
-  }
-
-  return lines.join("\n");
 }
 
 async function launch(store: Store, args: string[]): Promise<number> {
@@ -234,7 +294,6 @@ function editedServers(store: Store, profile: Profile, picked: string[]): string
   return picked;
 }
 
-/** Add names to a profile without duplicating them. Wildcard profiles already cover everything. */
 function assignServers(store: Store, profileName: string, names: string[]): void {
   const profile = store.profiles[profileName];
   if (!profile || isWildcardProfile(profile)) return;
@@ -258,7 +317,7 @@ export async function customSession(store: Store, args: string[]): Promise<numbe
 }
 
 export async function editProfile(store: Store, preselected?: string): Promise<void> {
-  const names = Object.keys(store.profiles);
+  const names = orderedProfileNames(store);
   if (names.length === 0) {
     p.log.warn("There are no profiles to edit yet.");
     return;
@@ -270,20 +329,18 @@ export async function editProfile(store: Store, preselected?: string): Promise<v
       : await ask(
           await p.select<string>({
             message: "Which profile do you want to edit?",
-            options: [
-              ...names.map((profileName) => {
-                const profile = store.profiles[profileName]!;
-                return {
-                  value: profileName,
-                  label: profileLabel(profileName, profile),
-                  hint: shortenHint(
-                    isWildcardProfile(profile)
-                      ? "all configured servers"
-                      : summarizeServers(profileServerNames(store, profile)),
-                  ),
-                };
-              }),
-            ],
+            options: names.map((profileName) => {
+              const profile = store.profiles[profileName]!;
+              return {
+                value: profileName,
+                label: profileLabel(profileName, profile),
+                hint: shortenHint(
+                  isWildcardProfile(profile)
+                    ? "all configured servers"
+                    : summarizeServers(profileServerNames(store, profile)),
+                ),
+              };
+            }),
           }),
         );
 
@@ -340,7 +397,7 @@ export async function createProfile(store: Store): Promise<void> {
 }
 
 export async function deleteProfile(store: Store, preselected?: string): Promise<void> {
-  const names = Object.keys(store.profiles);
+  const names = orderedProfileNames(store);
   if (names.length === 0) {
     p.log.warn("There are no profiles to delete.");
     return;
@@ -352,20 +409,18 @@ export async function deleteProfile(store: Store, preselected?: string): Promise
       : await ask(
           await p.select<string>({
             message: "Which profile do you want to delete?",
-            options: [
-              ...names.map((profileName) => {
-                const profile = store.profiles[profileName]!;
-                return {
-                  value: profileName,
-                  label: profileLabel(profileName, profile),
-                  hint: shortenHint(
-                    isWildcardProfile(profile)
-                      ? "all configured servers"
-                      : summarizeServers(profileServerNames(store, profile)),
-                  ),
-                };
-              }),
-            ],
+            options: names.map((profileName) => {
+              const profile = store.profiles[profileName]!;
+              return {
+                value: profileName,
+                label: profileLabel(profileName, profile),
+                hint: shortenHint(
+                  isWildcardProfile(profile)
+                    ? "all configured servers"
+                    : summarizeServers(profileServerNames(store, profile)),
+                ),
+              };
+            }),
           }),
         );
 
@@ -386,6 +441,12 @@ export async function deleteProfile(store: Store, preselected?: string): Promise
   p.log.success(`Profile "${name}" deleted.`);
 }
 
+/** Wipe the previous menu/sub-flow so Back does not stack old screens. */
+function clearScreen(): void {
+  if (!process.stdout.isTTY) return;
+  process.stdout.write("\x1b[2J\x1b[H");
+}
+
 /**
  * Interactive launcher loop. Returns the exit code of the OpenCode process,
  * or 0 when the user quits the menu without launching.
@@ -396,7 +457,6 @@ export async function runMenu(store: Store, args: string[]): Promise<number> {
     if (!first) clearScreen();
     first = false;
 
-    p.note(header(store), "omcp");
     const choice = await chooseMenu(store);
 
     if (choice.kind === "profile") {
@@ -416,6 +476,7 @@ export async function runMenu(store: Store, args: string[]): Promise<number> {
     if (choice.kind === "edit") await runSubFlow(() => editProfile(store, choice.name));
     if (choice.kind === "delete") await runSubFlow(() => deleteProfile(store, choice.name));
     if (choice.kind === "create") await runSubFlow(() => createProfile(store));
+    if (choice.kind === "more") continue;
 
     if (choice.kind === "add") {
       await runSubFlow(async () => {

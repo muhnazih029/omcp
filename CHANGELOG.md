@@ -11,7 +11,9 @@
 
 ### Changed
 
-- Removed every `← Back` option row. `Esc` (or `Ctrl+C`) now backs out of any prompt; footers show `esc back` beside the action keys.
+- Removed every `← Back` option row. `Esc` (or `Ctrl+C`) now backs out of any prompt; the `?` panel lists it beside the other navigation keys.
+- Redesigned the launcher menu: block-letter `omcp` header, extended rules, `full`/`minimal` pinned to the top, `●`/`○` markers, and server detail shown only for the highlighted row.
+- The primary keys (↑/↓, Enter, `e`, `a`, `?`, `q`) are now a single footer line; `c`, `d`, `m`, `s`, `x` and the hints live in a `?` toggle panel.
 
 ## 0.1.0 — 2026-11-19
 

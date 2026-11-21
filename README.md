@@ -181,12 +181,13 @@ Plugin    claude-mem (declared by claude-mem.js) — cannot be disabled by omcp
 
 ## Menu navigation and shortcuts
 
-The main menu lists **profiles only**. Use ↑/↓ to move the highlight and Enter to apply the selected profile. The key hints are printed as a footer under the list — they are text, not extra menu rows.
+The main menu lists **profiles only**. Use ↑/↓ to move the highlight and Enter to apply the selected profile. `full` and `minimal` stay at the top, followed by the other profiles alphabetically. Only the highlighted row shows its server list, in the column between the profile name and the server count; it follows the highlight as you move. The primary keys are printed as a single-line footer under the list; the rest live in the `?` panel.
 
 | Key | Action |
 | --- | --- |
 | `e` | Edit the **highlighted** profile — change which servers it enables |
 | `d` | Delete the **highlighted** profile (servers stay configured, with confirmation) |
+| `?` | Toggle the "more actions" panel with the secondary keys and hints |
 | `a` | Register a new server and add it to the **highlighted** profile |
 | `s` | Sync from `opencode.json` and add imported servers to the **highlighted** profile |
 | `m` | Manage MCPs — list every server, edit (`e`) or delete (`d`) one |
@@ -200,7 +201,7 @@ With `full`, `a` and `s` do not add explicit entries because the wildcard alread
 
 Editing a server lets you change its name, how it starts, description, and tags. Changing "how it starts" re-runs the same wizard as `add`, including the optional environment variables prompt. Leaving that prompt empty is correct for servers that need no credentials.
 
-Press **Esc** at any prompt to go back to the previous menu (or cancel the current action). `Ctrl+C` does the same. The menu footers show `esc back` next to the action keys; there are no separate Back rows in the lists.
+Press **Esc** at any prompt to go back to the previous menu (or cancel the current action). `Ctrl+C` does the same. There are no separate Back rows in the lists; the `?` panel lists `esc` alongside the other navigation keys.
 
 ### "Add a server" vs "Sync"
 
