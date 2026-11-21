@@ -60,8 +60,16 @@ export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** Wipe the previous screen so the next view starts clean. */
+export function clearScreen(): void {
+  if (!process.stdout.isTTY) return;
+  process.stdout.write("\x1b[2J\x1b[H");
+}
+
 /** Return to the parent menu on cancellation instead of exiting omcp. */
-export async function runSubFlow(flow: () => Promise<void>): Promise<void> {
+export async function runSubFlow(flow: () => Promise<void>, header?: string): Promise<void> {
+  clearScreen();
+  if (header) process.stdout.write(`${header}\n`);
   try {
     await flow();
   } catch (error) {

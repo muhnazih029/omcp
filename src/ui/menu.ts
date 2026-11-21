@@ -3,7 +3,7 @@ import * as p from "@clack/prompts";
 import { applyServerSet } from "../apply.ts";
 import { externalServers, markExternal } from "../external.ts";
 import { launchOpenCode, resolveBinary } from "../launcher.ts";
-import { findConfigPath } from "../paths.ts";
+import { menuChrome, menuWidths } from "./chrome.ts";
 import {
   activeProfile,
   enabledServers,
@@ -16,10 +16,11 @@ import {
   syncCatalogFromConfig,
 } from "../store.ts";
 import type { Profile, Store } from "../types.ts";
-import { shortPath, slugifyProfileName } from "../util.ts";
+import { slugifyProfileName } from "../util.ts";
 import {
   ask,
   CancelledError,
+  clearScreen,
   runSubFlow,
   serverOptions,
   shortenHint,
@@ -43,9 +44,6 @@ export type MenuChoice =
   | { kind: "more" }
   | { kind: "create" }
   | { kind: "quit" };
-
-const CONTENT_WIDTH = 98;
-const RULE_WIDTH = 104;
 
 /** Map a single keypress to an action. `?` toggles the modal instead of submitting. */
 export function menuAction(key: string | undefined, profile: string): MenuChoice | null {
@@ -99,7 +97,17 @@ function actionLabel(choice: MenuChoice): string {
 }
 
 /** One-line footer. The remaining keys live in the `?` panel. */
-export function menuFooter(more = false): string {
+export function menuFooter(more = false, compact = false): string {
+  if (compact) {
+    return [
+      "↑↓ move",
+      "↵ apply",
+      "e edit",
+      "a add",
+      more ? "? close" : "? more",
+      "q quit",
+    ].join("  ");
+  }
   return [
     "[↑↓] Navigate",
     "[Enter] Apply",
@@ -119,18 +127,9 @@ function orderedProfileNames(store: Store): string[] {
   return [...pinned, ...rest];
 }
 
-function alignRight(left: string, right: string): string {
-  const gap = Math.max(1, CONTENT_WIDTH - 2 - left.length - right.length);
+function alignRight(left: string, right: string, width: number): string {
+  const gap = Math.max(1, width - 2 - left.length - right.length);
   return `  ${left}${" ".repeat(gap)}${right}`;
-}
-
-function renderHeader(store: Store): string {
-  const art = ["█▀█ █▀▄▀█ █▀▀ █▀█", "█▄█ █ ▀ █ █▄▄ █▀▀"];
-  const config = findConfigPath() ? shortPath(findConfigPath()!) : "(not created yet)";
-  return [
-    `${art[0]}   OpenCode MCP Profile Manager`,
-    `${art[1]}   Active: ${activeProfile(store) ?? "custom"}  |  Config: ${config}`,
-  ].join("\n");
 }
 
 function renderProfileRow(
@@ -139,19 +138,22 @@ function renderProfileRow(
   count: string,
   selected: boolean,
   active: boolean,
+  width: number,
 ): string {
   const marker = selected ? "●" : "○";
   const badge = active ? "[ACTIVE]" : "        ";
-  const left = `${marker} ${name.padEnd(8)} ${badge}  ${detail}`;
-  return `  ${left.padEnd(CONTENT_WIDTH - 2 - count.length)}${count}`;
+  const prefix = `${marker} ${name.padEnd(8)} ${badge}  `;
+  const detailWidth = Math.max(0, width - 3 - prefix.length - count.length);
+  const body = detailWidth > 0 ? prefix + (shortenHint(detail, detailWidth) ?? "") : prefix;
+  return `  ${body.padEnd(width - 2 - count.length)}${count}`;
 }
 
-function renderProfiles(store: Store, selected: string): string {
+function renderProfiles(store: Store, selected: string, width: number, rule: number): string {
   const names = orderedProfileNames(store);
   const active = activeProfile(store);
   const external = externalServers(store);
-  const thin = `  ${"─".repeat(RULE_WIDTH - 2)}`;
-  const lines = [alignRight("PROFILES", `${names.length} TOTAL`), thin];
+  const thin = `  ${"─".repeat(rule - 2)}`;
+  const lines = [alignRight("PROFILES", `${names.length} TOTAL`, width), thin];
 
   for (const name of names) {
     const profile = store.profiles[name]!;
@@ -162,45 +164,56 @@ function renderProfiles(store: Store, selected: string): string {
         ? `all configured servers (${members.length})`
         : members.length > 0
           ? summarizeServers(members.map((server) => markExternal(server, external)))
-          : "";
+          : "none";
     const count = `${members.length} server${members.length === 1 ? "" : "s"}`;
-    lines.push(renderProfileRow(name, detail, count, name === selected, name === active));
+    lines.push(renderProfileRow(name, detail, count, name === selected, name === active, width));
   }
 
   lines.push(thin);
   return lines.join("\n");
 }
 
-function renderMore(): string {
-  const box = (text: string) => `  │${text.padEnd(CONTENT_WIDTH - 4)}│`;
+function renderMore(width: number): string {
+  const room = width - 4;
+  const box = (text: string) => `  │${(shortenHint(text, room) ?? "").padEnd(room)}│`;
+  const lines = width < 76
+    ? [
+        "  Profile  [c] Create  [d] Delete",
+        "  Servers  [a] Add  [m] MCPs  [s] Sync  [x] Custom",
+        "  Nav      [esc] Back  [?] Close",
+        "",
+        "  * = plugin-provided, cannot be disabled.",
+      ]
+    : [
+        "  Profile       [c] Create profile        [d] Delete selected profile",
+        "  Servers       [a] Add server            [m] Manage MCP servers",
+        "                [s] Sync config           [x] Custom session",
+        "  Navigation    [esc] Back / Cancel       [?] Toggle this panel",
+        "",
+        "  Servers marked * come from a plugin and cannot be disabled.",
+      ];
+
   return [
-    `  ┌─ MORE ACTIONS ${"─".repeat(CONTENT_WIDTH - 19)}┐`,
+    `  ┌─ MORE ACTIONS ${"─".repeat(Math.max(1, width - 19))}┐`,
     box(""),
-    box("  Profile       [c] Create profile        [d] Delete selected profile"),
-    box("  Servers       [a] Add server            [m] Manage MCP servers"),
-    box("                [s] Sync config           [x] Custom session"),
-    box("  Navigation    [esc] Back / Cancel       [?] Toggle this panel"),
+    ...lines.map(box),
     box(""),
-    box("  Servers marked * (claude-mem*) come from a plugin and cannot be disabled."),
-    box(""),
-    `  └${"─".repeat(CONTENT_WIDTH - 4)}┘`,
+    `  └${"─".repeat(Math.max(1, width - 4))}┘`,
   ].join("\n");
 }
 
 function renderMenu(prompt: MenuPrompt, view: MenuView): string {
   const selected = prompt.options[prompt.cursor]?.value ?? "";
+  const { content, rule } = menuWidths();
   const lines = [
-    renderHeader(view.store),
+    menuChrome(view.store),
+    renderProfiles(view.store, selected, content, rule),
     "",
-    "═".repeat(RULE_WIDTH),
-    "",
-    renderProfiles(view.store, selected),
-    "",
-    `  ${menuFooter(view.more)}`,
+    `  ${menuFooter(view.more, content < 76)}`,
   ];
 
   if (view.submitted) lines.push("", `  ${view.submitted}`);
-  if (view.more) lines.push("", renderMore());
+  if (view.more) lines.push("", renderMore(content));
   lines.push("");
   return lines.join("\n");
 }
@@ -246,7 +259,7 @@ async function chooseMenu(store: Store): Promise<MenuChoice> {
       return;
     }
     action = choice;
-    view.submitted = actionLabel(choice);
+    if (choice.kind !== "quit") view.submitted = actionLabel(choice);
     prompt.value = `action:${choice.kind}`;
     prompt.state = "submit";
   });
@@ -441,22 +454,13 @@ export async function deleteProfile(store: Store, preselected?: string): Promise
   p.log.success(`Profile "${name}" deleted.`);
 }
 
-/** Wipe the previous menu/sub-flow so Back does not stack old screens. */
-function clearScreen(): void {
-  if (!process.stdout.isTTY) return;
-  process.stdout.write("\x1b[2J\x1b[H");
-}
-
 /**
  * Interactive launcher loop. Returns the exit code of the OpenCode process,
  * or 0 when the user quits the menu without launching.
  */
 export async function runMenu(store: Store, args: string[]): Promise<number> {
-  let first = true;
   for (;;) {
-    if (!first) clearScreen();
-    first = false;
-
+    clearScreen();
     const choice = await chooseMenu(store);
 
     if (choice.kind === "profile") {
@@ -473,9 +477,11 @@ export async function runMenu(store: Store, args: string[]): Promise<number> {
       return await launch(store, args);
     }
 
-    if (choice.kind === "edit") await runSubFlow(() => editProfile(store, choice.name));
-    if (choice.kind === "delete") await runSubFlow(() => deleteProfile(store, choice.name));
-    if (choice.kind === "create") await runSubFlow(() => createProfile(store));
+    const chrome = menuChrome(store);
+
+    if (choice.kind === "edit") await runSubFlow(() => editProfile(store, choice.name), chrome);
+    if (choice.kind === "delete") await runSubFlow(() => deleteProfile(store, choice.name), chrome);
+    if (choice.kind === "create") await runSubFlow(() => createProfile(store), chrome);
     if (choice.kind === "more") continue;
 
     if (choice.kind === "add") {
@@ -486,35 +492,38 @@ export async function runMenu(store: Store, args: string[]): Promise<number> {
             ? `Server "${added}" is already included by full.`
             : `Server "${added}" registered and added to "${choice.name}".`,
         );
-      });
+      }, chrome);
     }
 
     if (choice.kind === "sync") {
-      const before = Object.keys(store.catalog);
-      syncCatalogFromConfig(store);
-      const added = Object.keys(store.catalog).filter((name) => !before.includes(name));
-      assignServers(store, choice.name, added);
-      saveStore(store);
-      p.log.success(
-        added.length > 0
-          ? `Imported ${added.length} server(s) into "${choice.name}": ${added.join(", ")}`
-          : "Catalog is already up to date.",
-      );
+      await runSubFlow(async () => {
+        const before = Object.keys(store.catalog);
+        syncCatalogFromConfig(store);
+        const added = Object.keys(store.catalog).filter((name) => !before.includes(name));
+        assignServers(store, choice.name, added);
+        saveStore(store);
+        p.log.success(
+          added.length > 0
+            ? `Imported ${added.length} server(s) into "${choice.name}": ${added.join(", ")}`
+            : "Catalog is already up to date.",
+        );
+      }, chrome);
     }
 
-    if (choice.kind === "manage") await runSubFlow(() => manageServers(store));
+    if (choice.kind === "manage") await runSubFlow(() => manageServers(store), chrome);
 
     if (choice.kind === "custom") {
       let code: number | null = null;
       await runSubFlow(async () => {
         code = await customSession(store, args);
-      });
+      }, chrome);
       if (code !== null) return code;
       continue;
     }
 
     if (choice.kind === "quit") {
-      p.outro("Nothing launched. Your profiles are saved.");
+      clearScreen();
+      console.log("Nothing launched. Your profiles are saved.");
       return 0;
     }
   }

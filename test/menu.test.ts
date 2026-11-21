@@ -41,4 +41,11 @@ describe("menuFooter", () => {
     expect(menuFooter(true)).toContain("[?] Close");
     expect(menuFooter(true)).not.toContain("[?] More");
   });
+
+  test("has a compact variant for narrow terminals", () => {
+    const compact = menuFooter(false, true);
+    expect(compact).toContain("↑↓ move");
+    expect(compact).toContain("? more");
+    expect(compact.length).toBeLessThan(menuFooter().length);
+  });
 });

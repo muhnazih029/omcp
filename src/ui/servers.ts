@@ -3,6 +3,7 @@ import * as p from "@clack/prompts";
 import { describeExternal, externalServers, markExternal } from "../external.ts";
 import type { Store } from "../types.ts";
 import { describeCommand } from "../util.ts";
+import { menuChrome } from "./chrome.ts";
 import { CancelledError, runSubFlow } from "./common.ts";
 import { deleteServerFlow, editServerFlow } from "./server.ts";
 
@@ -128,11 +129,11 @@ export async function manageServers(store: Store): Promise<void> {
     if (choice.kind === "edit") {
       await runSubFlow(async () => {
         await editServerFlow(store, choice.name);
-      });
+      }, menuChrome(store));
     } else {
       await runSubFlow(async () => {
         await deleteServerFlow(store, choice.name);
-      });
+      }, menuChrome(store));
     }
   }
 }
