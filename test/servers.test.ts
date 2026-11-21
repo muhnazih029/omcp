@@ -36,7 +36,7 @@ describe("serverMenuFooter", () => {
     expect(footer.split("\n")).toHaveLength(2);
     for (const key of ["e", "d"]) expect(footer).toContain(key);
     expect(footer).toContain("esc back");
-    expect(footer).toContain("Enter edit");
+    expect(footer).toContain("↑↓");
   });
 });
 

@@ -1,7 +1,4 @@
 import { findConfigPath } from "../paths.ts";
-import { activeProfile } from "../store.ts";
-import type { Store } from "../types.ts";
-import { shortenHint } from "./common.ts";
 import { shortPath } from "../util.ts";
 
 /** Widths shared by the fullscreen menu and the header kept above sub-flows. */
@@ -12,18 +9,22 @@ export function menuWidths(): { content: number; rule: number } {
   return { content, rule };
 }
 
-/** The persistent top of the screen: art, active profile, config and rule. */
-export function menuChrome(store: Store): string {
-  const art = ["█▀█ █▀▄▀█ █▀▀ █▀█", "█▄█ █ ▀ █ █▄▄ █▀▀"];
+/** Center a single line; each header line stays short enough to avoid wrapping. */
+function center(line: string): string {
+  const columns = process.stdout.columns ?? 100;
+  return " ".repeat(Math.max(0, Math.floor((columns - line.length) / 2))) + line;
+}
+
+/** The persistent header: centered block-letter OMCP, title, config and rule. */
+export function menuChrome(): string {
   const config = findConfigPath() ? shortPath(findConfigPath()!) : "(not created yet)";
-  const room = Math.max(10, menuWidths().content - 20);
-  return [
-    "",
-    "",
-    `${art[0]}   ${shortenHint("OpenCode MCP Profile Manager", room)}`,
-    `${art[1]}   ${shortenHint(`Active: ${activeProfile(store) ?? "custom"}  |  Config: ${config}`, room)}`,
-    "",
+  const lines = [
+    "█▀█ █▀▄▀█ █▀▀ █▀█",
+    "█▄█ █ ▀ █ █▄▄ █▀▀",
+    "OpenCode MCP Profile Manager",
+    `Config: ${config}`,
     "═".repeat(menuWidths().rule),
-    "",
-  ].join("\n");
+  ];
+
+  return ["", ...lines.map(center), ""].join("\n");
 }

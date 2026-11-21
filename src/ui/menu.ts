@@ -1,4 +1,5 @@
-import { isCancel, SelectPrompt } from "@clack/core";
+import { styleText } from "node:util";
+import { isCancel, MultiSelectPrompt, SelectPrompt } from "@clack/core";
 import * as p from "@clack/prompts";
 import { applyServerSet } from "../apply.ts";
 import { externalServers, markExternal } from "../external.ts";
@@ -23,6 +24,7 @@ import {
   clearScreen,
   runSubFlow,
   serverOptions,
+  type ServerOption,
   shortenHint,
   summarizeServers,
 } from "./common.ts";
@@ -206,7 +208,7 @@ function renderMenu(prompt: MenuPrompt, view: MenuView): string {
   const selected = prompt.options[prompt.cursor]?.value ?? "";
   const { content, rule } = menuWidths();
   const lines = [
-    menuChrome(view.store),
+    menuChrome(),
     renderProfiles(view.store, selected, content, rule),
     "",
     `  ${menuFooter(view.more, content < 76)}`,
@@ -279,6 +281,39 @@ async function launch(store: Store, args: string[]): Promise<number> {
   return await launchOpenCode({ binary, args });
 }
 
+type MultiPrompt = Omit<MultiSelectPrompt<ServerOption>, "prompt">;
+
+/** Server picker: same sub-header and rule treatment as the MCP manager. */
+function renderServerPicker(prompt: MultiPrompt, message: string): string {
+  const chosen = new Set(prompt.value ?? []);
+  const { content, rule } = menuWidths();
+  const thin = `  ${"─".repeat(rule - 2)}`;
+  const header = alignRight(message, `${prompt.options.length} TOTAL`, content);
+
+  if (prompt.state === "submit" || prompt.state === "cancel") {
+    const picked = prompt.options.filter((option) => chosen.has(option.value)).map((option) => option.label);
+    return `${header}\n${thin}\n  ${picked.length > 0 ? shortenHint(picked.join(", "), content - 4) : "none"}\n`;
+  }
+
+  const rows = prompt.options.map((option, index) => {
+    const circle = chosen.has(option.value) ? "●" : "○";
+    const hint = option.hint ? ` (${option.hint})` : "";
+    const row = `  ${circle} ${option.label}${hint}`;
+    // Both the cursor and a selected server use ●; the cursor row is lit.
+    return index === prompt.cursor ? styleText(["cyan", "bold"], row) : row;
+  });
+
+  return [
+    header,
+    thin,
+    ...rows,
+    "",
+    thin,
+    "  ↑↓ move · space select · ↵ confirm · esc back",
+    "",
+  ].join("\n");
+}
+
 async function pickServers(
   store: Store,
   message: string,
@@ -289,14 +324,18 @@ async function pickServers(
     return [];
   }
 
-  return ask(
-    await p.multiselect<string>({
-      message,
-      options: serverOptions(store),
-      initialValues,
-      required: false,
-    }),
-  );
+  const prompt = new MultiSelectPrompt<ServerOption>({
+    options: serverOptions(store),
+    initialValues,
+    required: false,
+    render: function (this: MultiPrompt) {
+      return renderServerPicker(this, message);
+    },
+  });
+
+  const result = await prompt.prompt();
+  if (isCancel(result)) throw new CancelledError();
+  return result ?? [];
 }
 
 /** Keep `full` dynamic when the user re-selects every registered server. */
@@ -315,7 +354,7 @@ function assignServers(store: Store, profileName: string, names: string[]): void
 
 export async function customSession(store: Store, args: string[]): Promise<number | null> {
   const previous = enabledServers();
-  const picked = await pickServers(store, "Servers for this session only", previous);
+  const picked = await pickServers(store, "MCPs for this session only", previous);
 
   applyServerSet(store, picked);
   saveStore(store);
@@ -360,7 +399,7 @@ export async function editProfile(store: Store, preselected?: string): Promise<v
   const profile = store.profiles[name]!;
   const picked = await pickServers(
     store,
-    `Servers in "${name}"`,
+    `MCPs in profile "${name}"`,
     profileServerNames(store, profile),
   );
   profile.servers = editedServers(store, profile, picked);
@@ -397,7 +436,7 @@ export async function createProfile(store: Store): Promise<void> {
     }),
   );
 
-  const servers = await pickServers(store, `Servers in "${name}"`, []);
+  const servers = await pickServers(store, `MCPs in profile "${name}"`, []);
 
   store.profiles[name] = {
     emoji: emoji.trim() === "" ? undefined : emoji.trim(),
@@ -477,7 +516,7 @@ export async function runMenu(store: Store, args: string[]): Promise<number> {
       return await launch(store, args);
     }
 
-    const chrome = menuChrome(store);
+    const chrome = menuChrome();
 
     if (choice.kind === "edit") await runSubFlow(() => editProfile(store, choice.name), chrome);
     if (choice.kind === "delete") await runSubFlow(() => deleteProfile(store, choice.name), chrome);
